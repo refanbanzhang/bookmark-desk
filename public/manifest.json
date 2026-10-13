@@ -7,10 +7,6 @@
   "permissions": [
     "bookmarks"
   ],
-  "host_permissions": [
-    "https://image.thum.io/*",
-    "https://www.google.com/*"
-  ],
   "chrome_url_overrides": {
     "newtab": "index.html"
   },

@@ -1,9 +1,8 @@
 <script setup>
-import { computed, onUnmounted, ref, watch } from 'vue'
+import { computed, onUnmounted, ref } from 'vue'
 import { gsap } from 'gsap'
+import { ExternalLink, Folder, GripVertical } from 'lucide-vue-next'
 import { VueDraggable } from 'vue-draggable-plus'
-import { getThumbnailForUrl } from '../utils/thumbnailCache'
-import { isFolderCenterDrop } from '../utils/folderDropZone'
 
 defineOptions({ name: 'BookmarkGroup' })
 
@@ -20,14 +19,6 @@ const props = defineProps({
     type: Number,
     default: 0
   },
-  minimalMode: {
-    type: Boolean,
-    default: false
-  },
-  cardLayout: {
-    type: String,
-    default: 'stacked'
-  },
   canAnimate: {
     type: Boolean,
     default: true
@@ -43,6 +34,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits([
+  'drag-start',
   'drag-end',
   'drag-target-change',
   'open-bookmark',
@@ -50,7 +42,6 @@ const emit = defineEmits([
 ])
 
 const groupRef = ref(null)
-const thumbMap = ref({})
 const isLocalDragging = ref(false)
 const depthClass = computed(() => `depth-${props.depth || 0}`)
 const parentIdValue = computed(() =>
@@ -69,28 +60,6 @@ const getHost = (url) => {
     return ''
   }
 }
-
-const loadThumb = async (node) => {
-  if (props.minimalMode || !node?.url) return
-  const src = await getThumbnailForUrl(node.url)
-  if (src) {
-    thumbMap.value[node.id] = src
-  }
-}
-
-watch(
-  () => [props.nodes, props.minimalMode],
-  ([nodes, minimalMode]) => {
-    if (minimalMode) {
-      thumbMap.value = {}
-      return
-    }
-    for (const node of nodes || []) {
-      loadThumb(node)
-    }
-  },
-  { immediate: true }
-)
 
 const onContextMenu = (node, event) => {
   event.preventDefault()
@@ -125,54 +94,57 @@ const getClientPoint = (event) => {
   return { clientX, clientY }
 }
 
-const getFolderCenterTargetId = (originalEvent, draggedId) => {
+const getFolderTargetId = (originalEvent, draggedId) => {
   const point = getClientPoint(originalEvent)
   if (!point || typeof document === 'undefined') {
     return null
   }
 
   const hoveredElement = document.elementFromPoint(point.clientX, point.clientY)
-  const folderItem = hoveredElement?.closest?.('.bookmark-item.is-folder')
-  const folderId = String(folderItem?.dataset.nodeId || '')
+  const folderTarget = hoveredElement?.closest?.('[data-folder-drop-id]')
+  const folderId = String(folderTarget?.dataset.folderDropId || '')
   if (!folderId || folderId === String(draggedId)) {
     return null
   }
 
-  const folderCard = folderItem.querySelector('.bookmark-row.folder > .bookmark-content')
-  if (!folderCard) {
-    return null
+  return folderId
+}
+
+const onFolderDragOver = (node, event) => {
+  if (!hasChildren(node) || !isAnyDragInProgress()) {
+    return
   }
 
-  const rect = folderCard.getBoundingClientRect()
-  const inCenter = isFolderCenterDrop({
-    clientX: point.clientX,
-    clientY: point.clientY,
-    rectLeft: rect.left,
-    rectTop: rect.top,
-    rectWidth: rect.width,
-    rectHeight: rect.height,
-    isCurrentTarget: String(props.activeDropFolderId || '') === folderId
-  })
+  event.preventDefault()
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move'
+  }
+  emit('drag-target-change', String(node.id))
+}
 
-  return inCenter ? folderId : null
+const onFolderDragLeave = (event) => {
+  if (event.currentTarget?.contains?.(event.relatedTarget)) {
+    return
+  }
+  emit('drag-target-change', null)
 }
 
 const onMove = (event, originalEvent) => {
   const draggedId = String(event.dragged?.dataset.nodeId || '')
-  const targetParentId = event.to?.dataset.groupParentId || ''
   if (!draggedId || !props.canMove) {
     emit('drag-target-change', null)
     return true
   }
 
-  if (!props.canMove(draggedId, targetParentId || null)) {
-    emit('drag-target-change', null)
+  const folderTargetId = getFolderTargetId(originalEvent, draggedId)
+  if (folderTargetId) {
+    emit('drag-target-change', props.canMove(draggedId, folderTargetId) ? folderTargetId : null)
     return false
   }
 
-  const folderTargetId = getFolderCenterTargetId(originalEvent, draggedId)
-  if (folderTargetId && props.canMove(draggedId, folderTargetId)) {
-    emit('drag-target-change', folderTargetId)
+  const targetParentId = event.to?.dataset.groupParentId || ''
+  if (!props.canMove(draggedId, targetParentId || null)) {
+    emit('drag-target-change', null)
     return false
   }
 
@@ -199,7 +171,7 @@ const setGlobalDragCount = (nextCount) => {
 const isAnyDragInProgress = () => document.documentElement.dataset.bookmarkDragging === 'true'
 
 const clearHoverAnimationTargets = () => {
-  const targets = groupRef.value?.$el?.querySelectorAll?.('.bookmark-content, .bookmark-thumb-wrap, .folder-thumb, .bookmark-text')
+  const targets = groupRef.value?.$el?.querySelectorAll?.('.bookmark-content, .bookmark-text')
   if (!targets?.length) {
     return
   }
@@ -210,11 +182,12 @@ const clearHoverAnimationTargets = () => {
   })
 }
 
-const onDragStart = () => {
+const onDragStart = (event) => {
   if (!isLocalDragging.value) {
     isLocalDragging.value = true
     setGlobalDragCount(getGlobalDragCount() + 1)
   }
+  emit('drag-start', String(event?.item?.dataset.nodeId || ''))
   emit('drag-target-change', null)
   clearHoverAnimationTargets()
 }
@@ -259,16 +232,15 @@ const rememberHoverBase = (element) => {
 
 const onBookmarkHoverEnter = (event) => {
   const element = event.currentTarget
-  if (!element || element.classList.contains('is-minimal') || isAnyDragInProgress()) {
+  if (!element || isAnyDragInProgress()) {
     return
   }
 
-  const thumb = element.querySelector('.bookmark-thumb-wrap, .folder-thumb')
   const text = element.querySelector('.bookmark-text')
 
   rememberHoverBase(element)
 
-  gsap.killTweensOf([element, thumb, text].filter(Boolean))
+  gsap.killTweensOf([element, text].filter(Boolean))
 
   const elementHoverVars = {
     y: -3,
@@ -276,21 +248,6 @@ const onBookmarkHoverEnter = (event) => {
     duration: 0.22,
     ease: 'power2.out',
     overwrite: 'auto'
-  }
-
-  if (thumb) {
-    const thumbHoverVars = {
-      scale: 1.04,
-      duration: 0.22,
-      ease: 'power2.out',
-      overwrite: 'auto'
-    }
-
-    if (!shouldAnimate()) {
-      gsap.set(thumb, omitMotionProps(thumbHoverVars))
-    } else {
-      gsap.to(thumb, thumbHoverVars)
-    }
   }
 
   if (text) {
@@ -318,15 +275,14 @@ const onBookmarkHoverEnter = (event) => {
 
 const onBookmarkHoverLeave = (event) => {
   const element = event.currentTarget
-  if (!element || element.classList.contains('is-minimal') || isAnyDragInProgress()) {
+  if (!element || isAnyDragInProgress()) {
     return
   }
 
-  const thumb = element.querySelector('.bookmark-thumb-wrap, .folder-thumb')
   const text = element.querySelector('.bookmark-text')
   const base = element.__gsapHoverBase || rememberHoverBase(element)
 
-  gsap.killTweensOf([element, thumb, text].filter(Boolean))
+  gsap.killTweensOf([element, text].filter(Boolean))
 
   const elementLeaveVars = {
     y: 0,
@@ -335,22 +291,6 @@ const onBookmarkHoverLeave = (event) => {
     duration: 0.2,
     ease: 'power2.out',
     overwrite: 'auto'
-  }
-
-  if (thumb) {
-    const thumbLeaveVars = {
-      scale: 1,
-      duration: 0.2,
-      ease: 'power2.out',
-      overwrite: 'auto',
-      clearProps: 'transform'
-    }
-
-    if (!shouldAnimate()) {
-      gsap.set(thumb, omitMotionProps(thumbLeaveVars))
-    } else {
-      gsap.to(thumb, thumbLeaveVars)
-    }
   }
 
   if (text) {
@@ -382,7 +322,7 @@ onUnmounted(() => {
     isLocalDragging.value = false
     setGlobalDragCount(getGlobalDragCount() - 1)
   }
-  const targets = groupRef.value?.$el?.querySelectorAll?.('.bookmark-content, .bookmark-thumb-wrap, .folder-thumb, .bookmark-text')
+  const targets = groupRef.value?.$el?.querySelectorAll?.('.bookmark-content, .bookmark-text')
   if (!targets?.length) {
     return
   }
@@ -390,6 +330,7 @@ onUnmounted(() => {
 })
 
 const forwardDragTargetChange = (folderId) => emit('drag-target-change', folderId)
+const forwardDragStart = (nodeId) => emit('drag-start', nodeId)
 const forwardOpenContextMenu = (node, point) => emit('open-context-menu', node, point)
 const forwardOpenBookmark = (url, options) => emit('open-bookmark', url, options)
 const forwardDragEnd = (event) => emit('drag-end', event)
@@ -400,7 +341,7 @@ const forwardDragEnd = (event) => emit('drag-end', event)
     ref="groupRef"
     tag="ul"
     class="bookmark-group"
-    :class="[depthClass, { 'is-minimal': minimalMode, 'is-media-left-layout': !minimalMode && cardLayout === 'media-left' }]"
+    :class="depthClass"
     :model-value="nodes"
     :animation="0"
     :data-group-parent-id="parentIdValue"
@@ -425,11 +366,19 @@ const forwardDragEnd = (event) => emit('drag-end', event)
       :data-id="String(node.id)"
       :data-node-id="String(node.id)"
     >
-      <section v-if="isRootFolder(node)" class="module-section folder">
+      <section
+        v-if="isRootFolder(node)"
+        class="module-section folder"
+        :class="{ 'is-drop-target': String(activeDropFolderId || '') === String(node.id) }"
+      >
         <div
           class="module-header-title module-folder-title drag-handle"
+          :data-folder-drop-id="String(node.id)"
           @contextmenu.prevent.stop="onContextMenu(node, $event)"
+          @dragover="onFolderDragOver(node, $event)"
+          @dragleave="onFolderDragLeave"
         >
+          <Folder :size="17" aria-hidden="true" />
           <span>{{ node.title || '未命名目录' }}</span>
         </div>
         <div class="module-body">
@@ -437,11 +386,10 @@ const forwardDragEnd = (event) => emit('drag-end', event)
             :nodes="node.children"
             :parent-id="node.id"
             :depth="depth + 1"
-            :minimal-mode="minimalMode"
-            :card-layout="cardLayout"
             :can-animate="canAnimate"
             :active-drop-folder-id="activeDropFolderId"
             :can-move="canMove"
+            @drag-start="forwardDragStart"
             @drag-end="forwardDragEnd"
             @drag-target-change="forwardDragTargetChange"
             @open-bookmark="forwardOpenBookmark"
@@ -453,58 +401,31 @@ const forwardDragEnd = (event) => emit('drag-end', event)
       <div v-else class="bookmark-row" :class="{ folder: hasChildren(node) }">
         <div
           class="bookmark-content drag-handle"
+          :data-folder-drop-id="hasChildren(node) ? String(node.id) : null"
           :class="{
-            'is-minimal': minimalMode,
-            'is-media-left': !minimalMode && cardLayout === 'media-left',
             'is-drop-target': hasChildren(node) && String(activeDropFolderId || '') === String(node.id)
           }"
           @click="onContentClick(node, $event)"
           @auxclick="onContentAuxClick(node, $event)"
           @contextmenu="onContextMenu(node, $event)"
+          @dragover="hasChildren(node) && onFolderDragOver(node, $event)"
+          @dragleave="hasChildren(node) && onFolderDragLeave($event)"
           @mouseenter="onBookmarkHoverEnter"
           @mouseleave="onBookmarkHoverLeave"
         >
-          <template v-if="!minimalMode">
-            <a
-              v-if="node.url && thumbMap[node.id]"
-              class="bookmark-thumb-link bookmark-thumb-wrap"
-              :href="node.url"
-              target="_blank"
-              rel="noreferrer"
-              draggable="false"
-              :style="{ '--thumb-bg': `url('${thumbMap[node.id]}')` }"
-              @click.stop
-            >
-              <img
-                class="bookmark-thumb"
-                :src="thumbMap[node.id]"
-                :alt="node.title || '缩略图'"
-                draggable="false"
-                loading="lazy"
-                decoding="async"
-              />
-            </a>
-            <a
-              v-else-if="node.url"
-              class="bookmark-thumb-link bookmark-thumb-wrap thumb-placeholder"
-              :href="node.url"
-              target="_blank"
-              rel="noreferrer"
-              draggable="false"
-              @click.stop
-            >
-              ...
-            </a>
-            <div v-else class="bookmark-thumb folder-thumb">DIR</div>
-          </template>
-
-          <div class="bookmark-text" :class="{ 'is-minimal': minimalMode }">
+          <div class="bookmark-text">
             <a v-if="node.url" :href="node.url" target="_blank" rel="noreferrer" draggable="false" @click.stop>
               {{ node.title || '未命名书签' }}
             </a>
-            <span v-if="node.url && !minimalMode" class="bookmark-host">{{ getHost(node.url) }}</span>
+            <span v-if="node.url" class="bookmark-host">{{ getHost(node.url) }}</span>
             <span v-else>{{ node.title || '未命名目录' }}</span>
           </div>
+          <span v-if="node.url" class="bookmark-open-icon" aria-hidden="true">
+            <ExternalLink :size="14" />
+          </span>
+          <span class="drag-indicator" aria-hidden="true">
+            <GripVertical :size="15" />
+          </span>
         </div>
       </div>
 
@@ -513,11 +434,10 @@ const forwardDragEnd = (event) => emit('drag-end', event)
         :nodes="node.children"
         :parent-id="node.id"
         :depth="depth + 1"
-        :minimal-mode="minimalMode"
-        :card-layout="cardLayout"
         :can-animate="canAnimate"
         :active-drop-folder-id="activeDropFolderId"
         :can-move="canMove"
+        @drag-start="forwardDragStart"
         @drag-end="forwardDragEnd"
         @drag-target-change="forwardDragTargetChange"
         @open-bookmark="forwardOpenBookmark"
@@ -529,7 +449,6 @@ const forwardDragEnd = (event) => emit('drag-end', event)
 
 <style scoped>
 .bookmark-group {
-  --bookmark-thumb-size: 42px;
   --bookmark-card-gap: 10px;
   --bookmark-card-width: calc((100% - (var(--bookmark-card-gap) * 4)) / 5);
   list-style: none;
@@ -543,33 +462,8 @@ const forwardDragEnd = (event) => emit('drag-end', event)
   column-gap: var(--bookmark-card-gap);
 }
 
-.bookmark-group.is-minimal {
-  display: grid;
-  gap: 6px;
-}
-
-.bookmark-group.is-minimal.depth-1 {
-  padding-left: 12px;
-}
-
-.bookmark-group.is-minimal.depth-2 {
-  padding-left: 24px;
-}
-
-.bookmark-group.is-minimal.depth-3 {
-  padding-left: 36px;
-}
-
-.bookmark-group.is-minimal.depth-4 {
-  padding-left: 48px;
-}
-
 .bookmark-item {
   list-style: none;
-}
-
-.bookmark-group.is-minimal > .bookmark-item {
-  width: 100%;
 }
 
 .bookmark-item.is-root-folder {
@@ -579,10 +473,6 @@ const forwardDragEnd = (event) => emit('drag-end', event)
 .bookmark-item:not(.is-root-folder) {
   flex: 0 0 auto;
   width: var(--bookmark-card-width);
-}
-
-.bookmark-group.is-media-left-layout > .bookmark-item:not(.is-root-folder) {
-  width: calc((100% - (var(--bookmark-card-gap) * 3)) / 4);
 }
 
 .bookmark-row {
@@ -609,27 +499,6 @@ const forwardDragEnd = (event) => emit('drag-end', event)
   will-change: transform, box-shadow, backdrop-filter;
 }
 
-.bookmark-content.is-minimal {
-  display: flex;
-  width: 100%;
-  max-width: none;
-  height: auto;
-  min-height: 0;
-  justify-content: flex-start;
-  gap: 0;
-  padding: 2px 0;
-  background: transparent;
-  border: 0;
-  box-shadow: none;
-  border-radius: 0;
-}
-
-.bookmark-content.is-media-left {
-  flex-direction: row;
-  align-items: center;
-  min-height: calc(var(--bookmark-thumb-size) + 20px);
-}
-
 .bookmark-row.folder .bookmark-content {
   background: var(--folder-card-bg);
   border-color: var(--folder-card-border);
@@ -642,124 +511,9 @@ const forwardDragEnd = (event) => emit('drag-end', event)
     0 16px 36px rgba(37, 99, 235, 0.16);
 }
 
-.bookmark-row.folder .bookmark-content.is-minimal {
-  background: transparent;
-  border-color: transparent;
-}
-
-.bookmark-thumb {
-  width: 100%;
-  height: 100%;
-  display: block;
-  max-width: 100%;
-  max-height: 100%;
-  margin: 0;
-  object-fit: contain;
-  aspect-ratio: 1 / 1;
-  object-position: center;
-  position: relative;
-  z-index: 1;
-}
-
-.bookmark-thumb-link {
-  display: block;
-  text-decoration: none;
-}
-
-.bookmark-thumb-wrap {
-  width: var(--bookmark-thumb-size);
-  height: var(--bookmark-thumb-size);
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 8px;
-  border: 0;
-  box-shadow:
-    0 1px 2px rgba(15, 23, 42, 0.06),
-    var(--thumb-inset);
-  border-radius: var(--bookmark-thumb-radius, 10px);
-  position: relative;
-  overflow: hidden;
-  background: var(--thumb-surface);
-  contain: paint;
-}
-
-.bookmark-thumb-wrap::before {
-  content: '';
-  position: absolute;
-  inset: -20%;
-  background-image: var(--thumb-bg);
-  background-size: cover;
-  background-position: center;
-  filter: blur(12px) saturate(1.1);
-  transform: scale(1.2);
-  opacity: 0.75;
-}
-
-.bookmark-thumb-wrap::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.06) 100%);
-}
-
-.folder-thumb {
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: 0;
-  box-shadow:
-    0 1px 2px rgba(15, 23, 42, 0.06),
-    var(--thumb-inset);
-  border-radius: var(--bookmark-thumb-radius, var(--radius-base));
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--folder-thumb-text);
-  background: var(--folder-thumb-bg);
-}
-
-.thumb-placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: 0;
-  box-shadow:
-    0 1px 2px rgba(15, 23, 42, 0.06),
-    var(--thumb-inset);
-  border-radius: var(--bookmark-thumb-radius, var(--radius-base));
-  color: var(--thumb-placeholder-text);
-  font-size: 12px;
-  font-weight: 600;
-  background: var(--thumb-placeholder-bg);
-}
-
 .bookmark-text {
   min-width: 0;
   width: 100%;
-}
-
-.bookmark-content.is-media-left .bookmark-text {
-  display: flex;
-  min-height: var(--bookmark-thumb-size);
-  flex-direction: column;
-  justify-content: center;
-}
-
-.bookmark-text.is-minimal {
-  flex: initial;
-  width: 100%;
-}
-
-.bookmark-text.is-minimal a,
-.bookmark-text.is-minimal span {
-  overflow: visible;
-  display: block;
-  white-space: nowrap;
-  -webkit-line-clamp: unset;
 }
 
 .bookmark-text > a,
@@ -805,10 +559,6 @@ const forwardDragEnd = (event) => emit('drag-end', event)
   -webkit-line-clamp: unset;
 }
 
-.bookmark-row.folder .bookmark-text.is-minimal span {
-  white-space: normal;
-}
-
 .bookmark-sort-chosen .bookmark-content,
 .bookmark-sort-drag .bookmark-content {
   border-style: dashed;
@@ -836,28 +586,106 @@ const forwardDragEnd = (event) => emit('drag-end', event)
     --bookmark-card-width: calc((100% - var(--bookmark-card-gap)) / 2);
   }
 
-  .bookmark-group.is-media-left-layout > .bookmark-item:not(.is-root-folder) {
-    width: 100%;
-  }
-
   .bookmark-content {
     padding: 10px;
-  }
-
-  .bookmark-content.is-media-left {
-    width: 100%;
-  }
-
-  .bookmark-content.is-minimal {
-    width: 100%;
-    height: auto;
-    min-height: 0;
-    padding: 2px 0;
   }
 
   .bookmark-text > a,
   .bookmark-text > span:not(.bookmark-host) {
     font-size: 12px;
+  }
+}
+
+/* Keep the recursive list visually aligned with the shared shadcn-style tokens. */
+.bookmark-group {
+  --bookmark-card-gap: 12px;
+  --bookmark-card-width: calc((100% - (var(--bookmark-card-gap) * 4)) / 5);
+  row-gap: 12px;
+}
+
+.bookmark-content {
+  padding: 14px;
+  border-radius: var(--bookmark-card-radius, 10px);
+  box-shadow: var(--bookmark-card-shadow);
+  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+}
+
+.bookmark-content:hover {
+  border-color: var(--bookmark-hover-border);
+  box-shadow: var(--bookmark-hover-shadow);
+}
+
+.bookmark-text {
+  position: relative;
+  padding-right: 18px;
+}
+
+.bookmark-text > a,
+.bookmark-text > span:not(.bookmark-host) {
+  font-size: 13px;
+  line-height: 1.35;
+  font-weight: 600;
+}
+
+.bookmark-host {
+  font-size: 11px;
+}
+
+.bookmark-open-icon,
+.drag-indicator {
+  position: absolute;
+  display: inline-flex;
+  color: var(--muted);
+  opacity: 0;
+  transition: opacity 150ms ease, color 150ms ease;
+}
+
+.bookmark-open-icon {
+  right: 12px;
+  top: 12px;
+}
+
+.drag-indicator {
+  right: 10px;
+  bottom: 10px;
+  cursor: grab;
+}
+
+.bookmark-content:hover .bookmark-open-icon,
+.bookmark-content:hover .drag-indicator,
+.bookmark-content:focus-within .bookmark-open-icon {
+  opacity: 1;
+}
+
+.bookmark-open-icon:hover {
+  color: var(--text);
+}
+
+.bookmark-row.folder .bookmark-content {
+  background: var(--folder-card-bg);
+}
+
+.bookmark-row.folder .bookmark-content.is-drop-target {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.module-section.is-drop-target {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+
+.bookmark-sort-chosen .bookmark-content,
+.bookmark-sort-drag .bookmark-content {
+  border-style: dashed;
+  border-color: var(--accent);
+  box-shadow: none;
+}
+
+@media (max-width: 768px) {
+  .bookmark-group {
+    --bookmark-card-gap: 8px;
+    --bookmark-card-width: calc((100% - var(--bookmark-card-gap)) / 2);
   }
 }
 </style>

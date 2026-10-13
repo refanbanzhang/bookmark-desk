@@ -1,8 +1,17 @@
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { gsap } from 'gsap'
+import {
+  Bookmark,
+  Moon,
+  Palette,
+  Pencil,
+  Sun,
+  Trash2,
+  X
+} from 'lucide-vue-next'
 import BookmarkGroup from './components/BookmarkGroup.vue'
-import { fallbackTree } from './mock/fallbackTree'
+import { fallbackTree } from './mock/fallbackTreeClean'
 import {
   findNodeById,
   getNodeLocation,
@@ -11,7 +20,6 @@ import {
   pruneNodesByIds,
   renameNodeInTree
 } from './utils/bookmarkTree'
-import { isFolderCenterDrop } from './utils/folderDropZone'
 import {
   clearBackgroundSettings,
   createDefaultBackgroundSettings,
@@ -26,8 +34,6 @@ const status = ref('正在加载书签……')
 const warning = ref('')
 const activeTab = ref('')
 const theme = ref('light')
-const minimalMode = ref(false)
-const cardLayout = ref('stacked')
 const pageShellRef = ref(null)
 const pageBackdropRef = ref(null)
 const contentRef = ref(null)
@@ -52,6 +58,7 @@ const editError = ref('')
 const editInput = ref(null)
 const activeDropFolderId = ref('')
 const activeDropTabId = ref('')
+const dragSourceId = ref('')
 const deletingNode = ref(null)
 const contextMenu = ref({
   visible: false,
@@ -61,8 +68,6 @@ const contextMenu = ref({
 })
 
 const THEME_KEY = 'bookmark-theme'
-const MINIMAL_MODE_KEY = 'bookmark-minimal-mode'
-const CARD_LAYOUT_KEY = 'bookmark-card-layout'
 const ACTIVE_TAB_KEY = 'bookmark-active-tab'
 const ANIMATION_ENABLED_KEY = 'bookmark-animation-enabled'
 const MAX_ANIMATED_BOOKMARKS = 24
@@ -127,6 +132,7 @@ const tabOptions = computed(() => {
 
   return []
 })
+
 const visibleParentId = computed(() => {
   if (!tabOptions.value.length) {
     return null
@@ -176,7 +182,6 @@ const pageShellStyle = computed(() => {
   const cardOpacity = Number(previewBackgroundSettings.value.cardOpacity) || 0
   const cardRadius = Number(previewBackgroundSettings.value.cardRadius) || 0
   const tabRadius = Number(previewBackgroundSettings.value.tabRadius) || 0
-  const thumbRadius = Math.max(0, cardRadius - 2)
   const tabItemRadius = Math.max(0, tabRadius - 2)
   const bookmarkCardRgb = isDark ? '28 28 30' : '255 255 255'
   const folderStartRgb = isDark ? '44 44 46' : '239 246 255'
@@ -186,23 +191,11 @@ const pageShellStyle = computed(() => {
 
   return {
     '--bookmark-card-radius': `${cardRadius}px`,
-    '--bookmark-thumb-radius': `${thumbRadius}px`,
     '--bookmark-card-bg': `rgb(${bookmarkCardRgb} / ${cardOpacity})`,
     '--folder-card-bg': `linear-gradient(180deg, rgb(${folderStartRgb} / ${folderStartOpacity}) 0%, rgb(${folderEndRgb} / ${folderEndOpacity}) 100%)`,
     '--bookmark-card-backdrop-filter': 'none',
     '--tab-shell-radius': `${tabRadius}px`,
     '--tab-item-radius': `${tabItemRadius}px`
-  }
-})
-
-const contentStyle = computed(() => {
-  if (!hasBackgroundImage.value) {
-    return {}
-  }
-
-  return {
-    background: 'transparent',
-    backdropFilter: 'none'
   }
 })
 
@@ -390,19 +383,6 @@ const toggleTheme = () => {
   localStorage.setItem(THEME_KEY, next)
 }
 
-const initMinimalMode = () => {
-  minimalMode.value = localStorage.getItem(MINIMAL_MODE_KEY) === 'true'
-}
-
-const toggleMinimalMode = () => {
-  minimalMode.value = !minimalMode.value
-  localStorage.setItem(MINIMAL_MODE_KEY, String(minimalMode.value))
-}
-
-const initCardLayout = () => {
-  cardLayout.value = localStorage.getItem(CARD_LAYOUT_KEY) === 'media-left' ? 'media-left' : 'stacked'
-}
-
 const initActiveTab = () => {
   activeTab.value = localStorage.getItem(ACTIVE_TAB_KEY) || ''
 }
@@ -446,16 +426,38 @@ const initMotionPreferences = () => {
   mediaQuery.addListener?.(updateMotionPreference)
 }
 
-const toggleCardLayout = () => {
-  cardLayout.value = cardLayout.value === 'media-left' ? 'stacked' : 'media-left'
-  localStorage.setItem(CARD_LAYOUT_KEY, cardLayout.value)
-}
-
 const initBackgroundSettings = async () => {
   backgroundSettings.value = await loadBackgroundSettings()
 }
 
-const getRootCssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+const getRootCssVar = (name, element = document.documentElement) =>
+  getComputedStyle(element).getPropertyValue(name).trim()
+
+const logContrastState = (reason) => {
+  if (!import.meta.env.DEV || !contentRef.value) {
+    return
+  }
+
+  const rootStyles = getComputedStyle(document.documentElement)
+  const contentStyles = getComputedStyle(contentRef.value)
+  const tab = contentRef.value.querySelector('.tab-btn')
+  const activeTab = contentRef.value.querySelector('.tab-btn-active')
+  const tabStyles = tab ? getComputedStyle(tab) : null
+  const activeTabStyles = activeTab ? getComputedStyle(activeTab) : null
+  console.debug('[bookmark contrast]', {
+    reason,
+    theme: theme.value,
+    backgroundImage: hasBackgroundImage.value,
+    text: rootStyles.getPropertyValue('--text').trim(),
+    muted: rootStyles.getPropertyValue('--muted').trim(),
+    contentBackground: contentStyles.backgroundColor,
+    contentColor: contentStyles.color,
+    tabColor: tabStyles?.color || '',
+    tabTextShadow: tabStyles?.textShadow || '',
+    activeTabColor: activeTabStyles?.color || '',
+    activeTabTextShadow: activeTabStyles?.textShadow || ''
+  })
+}
 
 const omitMotionProps = (vars) => {
   const nextVars = { ...vars }
@@ -521,7 +523,9 @@ const resetHoverSurface = (element) => {
 const getTabBaseVars = (element) => ({
   backgroundColor: 'transparent',
   boxShadow: '0 0 0 rgba(0, 0, 0, 0)',
-  color: element?.classList.contains('tab-btn-active') ? getRootCssVar('--topbar-title') : getRootCssVar('--bookmark-host-color')
+  color: element?.classList.contains('tab-btn-active')
+    ? getRootCssVar('--tab-active-text', element)
+    : getRootCssVar('--tab-text', element)
 })
 
 const resetTabHighlightAnimationState = () => {
@@ -605,7 +609,9 @@ const onTabHoverEnter = (event) => {
   animateHoverSurface(element, {
     y: -1,
     scale: 1.01,
-    color: element.classList.contains('tab-btn-active') ? getRootCssVar('--topbar-title') : getRootCssVar('--text')
+    color: element.classList.contains('tab-btn-active')
+      ? getRootCssVar('--tab-active-text', element)
+      : getRootCssVar('--tab-text', element)
   })
 }
 
@@ -1097,7 +1103,7 @@ const syncStatusForMode = () => {
     return
   }
 
-  status.value = 'Chrome 书签接口暂不可用，展示演示数据。'
+  status.value = ''
   warning.value = ''
 }
 
@@ -1370,6 +1376,18 @@ const canMoveNode = (draggedId, targetParentId) => {
 const isBookmarkDragActive = () =>
   typeof document !== 'undefined' && document.documentElement.dataset.bookmarkDragging === 'true'
 
+const logDrag = (message, details = {}) => {
+  if (import.meta.env.DEV) {
+    console.debug(`[bookmark drag] ${message}`, details)
+  }
+}
+
+const handleBookmarkDragStart = (nodeId) => {
+  dragSourceId.value = nodeId ? String(nodeId) : ''
+  clearDragDropTargets()
+  logDrag('start', { nodeId: dragSourceId.value })
+}
+
 const clearDragDropTargets = () => {
   activeDropFolderId.value = ''
   activeDropTabId.value = ''
@@ -1401,9 +1419,17 @@ const getClientPoint = (event) => {
 }
 
 const resolveExternalDropFolderId = (event) => {
+  if (activeDropTabId.value) {
+    return activeDropTabId.value
+  }
+
+  if (activeDropFolderId.value) {
+    return activeDropFolderId.value
+  }
+
   const point = getClientPoint(event?.originalEvent)
   if (!point || typeof document === 'undefined') {
-    return activeDropTabId.value || activeDropFolderId.value || null
+    return null
   }
 
   const element = document.elementFromPoint(point.clientX, point.clientY)
@@ -1414,24 +1440,13 @@ const resolveExternalDropFolderId = (event) => {
   }
 
   const folderItem = element?.closest?.('.bookmark-item.is-folder')
-  const folderId = String(folderItem?.dataset.nodeId || '')
-  const folderCard = folderItem?.querySelector?.('.bookmark-row.folder > .bookmark-content')
-  if (!folderId || !folderCard) {
-    return activeDropTabId.value || activeDropFolderId.value || null
+  const folderTarget = element?.closest?.('[data-folder-drop-id]')
+  const folderId = String(folderTarget?.dataset.folderDropId || '')
+  if (!folderId || !folderItem) {
+    return null
   }
 
-  const rect = folderCard.getBoundingClientRect()
-  const inCenter = isFolderCenterDrop({
-    clientX: point.clientX,
-    clientY: point.clientY,
-    rectLeft: rect.left,
-    rectTop: rect.top,
-    rectWidth: rect.width,
-    rectHeight: rect.height,
-    isCurrentTarget: activeDropFolderId.value === folderId
-  })
-
-  return inCenter ? folderId : activeDropTabId.value || activeDropFolderId.value || null
+  return folderId
 }
 
 const getFolderAppendIndex = (folderId) => {
@@ -1478,41 +1493,89 @@ const handleFolderDragTargetChange = (folderId) => {
     clearDragDropTargets()
     return
   }
-  setActiveDropFolder(folderId)
+
+  const nextFolderId =
+    folderId && dragSourceId.value && canMoveNode(dragSourceId.value, folderId)
+      ? String(folderId)
+      : ''
+
+  if (nextFolderId !== activeDropFolderId.value) {
+    logDrag('folder-target', {
+      sourceId: dragSourceId.value,
+      targetId: nextFolderId || null
+    })
+  }
+  setActiveDropFolder(nextFolderId)
 }
 
 const handleTabDragOver = (tabId, event) => {
-  if (!isBookmarkDragActive() || tabId === ROOT_BOOKMARKS_TAB_ID) {
+  if (
+    !isBookmarkDragActive() ||
+    tabId === ROOT_BOOKMARKS_TAB_ID ||
+    !dragSourceId.value ||
+    !canMoveNode(dragSourceId.value, tabId)
+  ) {
     return
   }
   event.preventDefault()
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move'
+  }
+  if (activeDropTabId.value !== String(tabId)) {
+    logDrag('tab-target', {
+      sourceId: dragSourceId.value,
+      targetId: String(tabId)
+    })
+  }
   setActiveDropTab(tabId)
 }
 
+const handleTabDragLeave = (tabId, event) => {
+  if (event.currentTarget?.contains?.(event.relatedTarget)) {
+    return
+  }
+  if (activeDropTabId.value === String(tabId)) {
+    activeDropTabId.value = ''
+  }
+}
+
 const handleTabDrop = (tabId, event) => {
-  if (!isBookmarkDragActive() || tabId === ROOT_BOOKMARKS_TAB_ID) {
+  if (
+    !isBookmarkDragActive() ||
+    tabId === ROOT_BOOKMARKS_TAB_ID ||
+    !dragSourceId.value ||
+    !canMoveNode(dragSourceId.value, tabId)
+  ) {
     return
   }
   event.preventDefault()
+  event.stopPropagation()
   setActiveDropTab(tabId)
 }
 
 const handleDragEnd = async (event) => {
   closeContextMenu()
 
-  if (!event || !event.item) {
+  if (!event) {
     clearDragDropTargets()
+    dragSourceId.value = ''
     return
   }
 
-  const targetId = String(event.item.dataset.nodeId || '')
+  const targetId = String(event.item?.dataset.nodeId || dragSourceId.value || '')
   if (!targetId) {
     clearDragDropTargets()
+    dragSourceId.value = ''
     return
   }
 
   const sourceLocation = getNodeLocation(bookmarkTree.value, targetId)
   const externalTargetFolderId = resolveExternalDropFolderId(event)
+  logDrag('end', {
+    sourceId: targetId,
+    targetId: externalTargetFolderId,
+    sourceParentId: sourceLocation?.parentId ?? null
+  })
   if (externalTargetFolderId && canMoveNode(targetId, externalTargetFolderId)) {
     const sourceParentId = normalizeParentId(sourceLocation?.parentId)
     if (sourceParentId !== normalizeParentId(externalTargetFolderId)) {
@@ -1528,12 +1591,14 @@ const handleDragEnd = async (event) => {
         successStatus: `已移动到目录「${targetFolderTitle}」。`,
         demoWarning: '当前为演示数据，移动仅在页面内生效。'
       })
+      dragSourceId.value = ''
       return
     }
   }
 
   if (event.from === event.to && event.oldIndex === event.newIndex) {
     clearDragDropTargets()
+    dragSourceId.value = ''
     return
   }
 
@@ -1541,6 +1606,7 @@ const handleDragEnd = async (event) => {
   const nextIndex = Number.isInteger(event.newDraggableIndex) ? event.newDraggableIndex : event.newIndex
   if (!Number.isInteger(nextIndex) || nextIndex < 0) {
     clearDragDropTargets()
+    dragSourceId.value = ''
     return
   }
 
@@ -1550,8 +1616,9 @@ const handleDragEnd = async (event) => {
     targetIndex: nextIndex,
     chromeIndex: getChromeMoveIndex(event),
     successStatus: '已更新书签顺序。',
-    demoWarning: '当前为演示数据，拖拽排序仅在页面内生效。'
+    demoWarning: ''
   })
+  dragSourceId.value = ''
 }
 
 const openContextMenu = (node, point) => {
@@ -1670,6 +1737,11 @@ watch(activeTab, (nextTab, previousTab) => {
 watch(theme, () => {
   nextTick(syncTabButtonStates)
   nextTick(() => updateTabHighlight({ immediate: true }))
+  nextTick(() => logContrastState('theme-change'))
+})
+
+watch(hasBackgroundImage, () => {
+  nextTick(() => logContrastState('background-change'))
 })
 
 watch(animationEnabled, (enabled) => {
@@ -1733,8 +1805,6 @@ onMounted(() => {
   initAnimationPreference()
   initMotionPreferences()
   initTheme()
-  initMinimalMode()
-  initCardLayout()
   initActiveTab()
   void initBackgroundSettings()
   void loadBookmarks()
@@ -1772,8 +1842,42 @@ onUnmounted(() => {
       :style="pageBackdropStyle"
     ></div>
 
-    <div ref="contentRef" class="content" :class="{ 'content-with-background': hasBackgroundImage }" :style="contentStyle">
+    <div ref="contentRef" class="content" :class="{ 'content-with-background': hasBackgroundImage }">
       <header ref="topbarRef" class="topbar">
+        <div class="topbar-main">
+          <div class="brand-block">
+            <div class="brand-mark" aria-hidden="true">
+              <Bookmark :size="20" :stroke-width="2.25" />
+            </div>
+            <div>
+              <h1>我的书签</h1>
+            </div>
+          </div>
+          <div class="topbar-actions">
+            <button
+              class="icon-button"
+              type="button"
+              aria-label="设置背景"
+              title="设置背景"
+              @click="openBackgroundSettings"
+            >
+              <Palette :size="17" />
+            </button>
+            <button
+              ref="themeSwitchRef"
+              class="icon-button"
+              type="button"
+              :aria-label="theme === 'dark' ? '切换为浅色模式' : '切换为夜间模式'"
+              :title="theme === 'dark' ? '切换为浅色模式' : '切换为夜间模式'"
+              @click="toggleTheme"
+            >
+              <span ref="themeSwitchIconRef" class="icon-glyph" aria-hidden="true">
+                <Moon v-if="theme === 'dark'" :size="17" />
+                <Sun v-else :size="17" />
+              </span>
+            </button>
+          </div>
+        </div>
         <nav ref="tabsRef" class="tabs" aria-label="书签分类">
           <span ref="tabHighlightRef" class="tab-highlight" aria-hidden="true"></span>
           <button
@@ -1786,47 +1890,20 @@ onUnmounted(() => {
             }"
             type="button"
             :data-folder-tab-id="tab.id === ROOT_BOOKMARKS_TAB_ID ? null : tab.id"
+            :title="tab.id === ROOT_BOOKMARKS_TAB_ID ? '' : '拖到这里可移动到该目录'"
             @click="switchTab(tab.id)"
             @contextmenu.prevent.stop="openTabContextMenu(tab.id, $event)"
             @dragover="handleTabDragOver(tab.id, $event)"
+            @dragleave="handleTabDragLeave(tab.id, $event)"
             @drop="handleTabDrop(tab.id, $event)"
           >
+            <Bookmark v-if="tab.id === ROOT_BOOKMARKS_TAB_ID" :size="14" />
             {{ tab.label }}
           </button>
         </nav>
-        <div class="topbar-actions">
-          <button
-            class="theme-switch"
-            type="button"
-            aria-label="打开外观设置"
-            title="外观设置"
-            @click="openBackgroundSettings"
-          >
-            <span class="material-symbols-outlined theme-switch-icon" aria-hidden="true">palette</span>
-          </button>
-          <button
-            class="theme-switch"
-            type="button"
-            :aria-label="cardLayout === 'media-left' ? '切换为上下卡片布局' : '切换为左图右文卡片布局'"
-            :title="cardLayout === 'media-left' ? '当前为左图右文' : '切换为左图右文'"
-            @click="toggleCardLayout"
-          >
-            <span class="material-symbols-outlined theme-switch-icon" aria-hidden="true">{{
-              cardLayout === 'media-left' ? 'view_agenda' : 'dashboard_customize'
-            }}</span>
-          </button>
-          <button
-            ref="themeSwitchRef"
-            class="theme-switch"
-            type="button"
-            :aria-label="theme === 'dark' ? '切换为浅色' : '切换为夜间'"
-            title="切换外观"
-            @click="toggleTheme"
-          >
-            <span ref="themeSwitchIconRef" class="material-symbols-outlined theme-switch-icon" aria-hidden="true">{{
-              theme === 'dark' ? 'dark_mode' : 'light_mode'
-            }}</span>
-          </button>
+        <div v-if="!loading && status" class="status-bar" aria-live="polite">
+          <span class="status-dot"></span>
+          {{ status }}
         </div>
       </header>
 
@@ -1843,11 +1920,10 @@ onUnmounted(() => {
             :nodes="visibleNodes"
             :parent-id="visibleParentId"
             :depth="0"
-            :minimal-mode="minimalMode"
-            :card-layout="cardLayout"
             :can-animate="bookmarkMotionEnabled"
             :active-drop-folder-id="activeDropFolderId"
             :can-move="canMoveNode"
+            @drag-start="handleBookmarkDragStart"
             @drag-end="handleDragEnd"
             @drag-target-change="handleFolderDragTargetChange"
             @open-bookmark="openBookmarkUrl"
@@ -1860,100 +1936,63 @@ onUnmounted(() => {
     </div>
 
     <div v-if="backgroundSettingsOpen" class="modal-overlay modal-overlay-clear" @click.self="closeBackgroundSettings">
-      <div class="modal-card modal-card-wide" role="dialog" aria-modal="true" aria-label="外观设置">
+      <div class="modal-card modal-card-wide" role="dialog" aria-modal="true" aria-label="背景设置">
         <div class="modal-header">
-          <h3 class="modal-title">外观设置</h3>
+          <h3 class="modal-title">背景设置</h3>
           <button
             class="modal-close"
             type="button"
+            aria-label="关闭背景设置"
             @click="closeBackgroundSettings"
           >
-            ×
+            <X :size="16" />
           </button>
         </div>
 
-        <p class="modal-meta">支持背景图、本地上传和书签卡片透明度、磨砂、圆角调节，保存后会持久化到本地。</p>
+        <p class="modal-meta">支持背景图地址、本地上传、显示强度和磨砂效果，保存后会持久化到本地。</p>
 
-        <div class="background-settings-layout">
-          <section class="background-settings-panel">
-            <div class="settings-panel-header">
-              <h4 class="settings-panel-title">背景调整</h4>
-              <p class="settings-panel-meta">背景图地址、上传、启用和透明磨砂效果统一放在这里。</p>
+        <section class="background-settings-panel">
+          <div class="settings-panel-header">
+            <h4 class="settings-panel-title">背景调整</h4>
+            <p class="settings-panel-meta">设置背景图地址、上传、启用和显示效果。</p>
+          </div>
+
+          <label class="modal-field">
+            <span>图片地址</span>
+            <input
+              v-model="backgroundDraft.imageUrl"
+              type="url"
+              placeholder="https://example.com/background.jpg"
+              spellcheck="false"
+            />
+          </label>
+
+          <div class="background-actions">
+            <button class="action-button" type="button" @click="triggerBackgroundUpload">上传本地图片</button>
+            <button class="action-button" type="button" @click="clearBackgroundImage">清除背景</button>
+          </div>
+
+          <label class="background-switch">
+            <input v-model="backgroundDraft.enabled" type="checkbox" />
+            <span>启用背景图</span>
+          </label>
+
+          <label class="modal-field modal-field-range">
+            <span>背景显示强度</span>
+            <div class="range-row">
+              <input v-model.number="backgroundDraft.opacity" type="range" min="0.2" max="1" step="0.01" />
+              <strong>{{ Math.round(backgroundDraft.opacity * 100) }}%</strong>
             </div>
+          </label>
 
-            <label class="modal-field">
-              <span>图片地址</span>
-              <input
-                v-model="backgroundDraft.imageUrl"
-                type="url"
-                placeholder="https://example.com/background.jpg"
-                spellcheck="false"
-              />
-            </label>
-
-            <div class="background-actions">
-              <button class="action-button" type="button" @click="triggerBackgroundUpload">上传本地图片</button>
-              <button class="action-button" type="button" @click="clearBackgroundImage">清除背景</button>
+          <label class="modal-field modal-field-range">
+            <span>背景磨砂强度</span>
+            <div class="range-row">
+              <input v-model.number="backgroundDraft.backdropBlur" type="range" min="0" max="24" step="1" />
+              <strong>{{ Math.round(backgroundDraft.backdropBlur) }}px</strong>
             </div>
-
-            <label class="background-switch">
-              <input v-model="backgroundDraft.enabled" type="checkbox" />
-              <span>启用背景图</span>
             </label>
-
-            <label class="modal-field modal-field-range">
-              <span>背景显示强度</span>
-              <div class="range-row">
-                <input v-model.number="backgroundDraft.opacity" type="range" min="0.2" max="1" step="0.01" />
-                <strong>{{ Math.round(backgroundDraft.opacity * 100) }}%</strong>
-              </div>
-            </label>
-
-            <label class="modal-field modal-field-range">
-              <span>背景磨砂强度</span>
-              <div class="range-row">
-                <input v-model.number="backgroundDraft.backdropBlur" type="range" min="0" max="24" step="1" />
-                <strong>{{ Math.round(backgroundDraft.backdropBlur) }}px</strong>
-              </div>
-            </label>
-
-          </section>
-
-          <section class="background-settings-panel background-settings-panel-controls">
-            <div class="settings-panel-header">
-              <h4 class="settings-panel-title">样式调整</h4>
-            </div>
-
-            <label class="background-switch">
-              <input v-model="animationEnabled" type="checkbox" />
-              <span>启用动效（自动跟随系统“减少动态效果”）</span>
-            </label>
-
-            <label class="modal-field modal-field-range">
-              <span>卡片透明度</span>
-              <div class="range-row">
-                <input v-model.number="backgroundDraft.cardOpacity" type="range" min="0.2" max="1" step="0.01" />
-                <strong>{{ Math.round(backgroundDraft.cardOpacity * 100) }}%</strong>
-              </div>
-            </label>
-
-            <label class="modal-field modal-field-range">
-              <span>卡片圆角</span>
-              <div class="range-row">
-                <input v-model.number="backgroundDraft.cardRadius" type="range" min="0" max="28" step="1" />
-                <strong>{{ Math.round(backgroundDraft.cardRadius) }}px</strong>
-              </div>
-            </label>
-
-            <label class="modal-field modal-field-range">
-              <span>目录圆角</span>
-              <div class="range-row">
-                <input v-model.number="backgroundDraft.tabRadius" type="range" min="0" max="28" step="1" />
-                <strong>{{ Math.round(backgroundDraft.tabRadius) }}px</strong>
-              </div>
-            </label>
-          </section>
-        </div>
+        </section>
 
         <p v-if="backgroundError" class="modal-error">{{ backgroundError }}</p>
 
@@ -1981,9 +2020,10 @@ onUnmounted(() => {
           <button
             class="modal-close"
             type="button"
+            aria-label="关闭重命名对话框"
             @click="closeEdit"
           >
-            ×
+            <X :size="16" />
           </button>
         </div>
 
@@ -2018,9 +2058,10 @@ onUnmounted(() => {
           <button
             class="modal-close"
             type="button"
+            aria-label="关闭删除确认"
             @click="closeDeleteConfirm"
           >
-            ×
+            <X :size="16" />
           </button>
         </div>
 
@@ -2049,6 +2090,7 @@ onUnmounted(() => {
         type="button"
         @click="handleContextRename"
       >
+        <Pencil :size="15" />
         重命名{{ contextKind }}
       </button>
       <button
@@ -2056,6 +2098,7 @@ onUnmounted(() => {
         type="button"
         @click="handleContextDelete"
       >
+        <Trash2 :size="15" />
         删除{{ contextKind }}
       </button>
     </div>
