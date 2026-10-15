@@ -3,9 +3,10 @@
   "name": "书签启动页",
   "short_name": "书签页",
   "description": "按目录展示 Chrome 书签的启动页，替代默认新标签页。",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "permissions": [
-    "bookmarks"
+    "bookmarks",
+    "favicon"
   ],
   "chrome_url_overrides": {
     "newtab": "index.html"

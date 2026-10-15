@@ -1,0 +1,109 @@
+/* ============================================================
+   Design tokens
+   取值来源：qoder.cn 线上计算样式（2026-10-15）
+   原则：边框承重、暖调中性色、品牌绿只用于关键动作、零阴影
+   ============================================================ */
+
+:root {
+  color-scheme: light;
+
+  /* 颜色 */
+  --bg-shell: #f2f4f2;
+  --bg-card: #f9f9f9;
+  --bg-elev: #ffffff;
+  --bg-hover: #ececea;
+  --bg-pressed: #e3e4e1;
+
+  --text: #0f0d0c;
+  --text-2: #636261;
+  --text-3: #8e8c8b;
+  --on-accent: #fdfdfd;
+
+  --border: #e6e6e6;
+  --border-2: #d6d6d4;
+  --border-strong: #bcbbba;
+  --dashed: rgba(99, 98, 97, 0.4);
+
+  --btn: #255a41;
+  --btn-hover: #1e4b36;
+  --accent: #80c776;
+  --accent-tint: rgba(128, 199, 118, 0.16);
+  --danger: #b42318;
+  --danger-tint: rgba(180, 35, 24, 0.07);
+  --warn: #faad14;
+  --focus: rgba(37, 90, 65, 0.32);
+  --overlay: rgba(15, 13, 12, 0.32);
+
+  /* 字体 */
+  --font-sans: 'Instrument Sans', 'Noto Sans SC', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: Menlo, Monaco, 'Cascadia Mono', Consolas, 'Liberation Mono', monospace;
+  --lh: 1.6;
+  --tracking-tight: -0.005em;
+
+  /* 字号 / 字重 */
+  --fs-modal: 15px;
+  --fs-module: 14px;
+  --fs-body: 13px;
+  --fs-meta: 11px;
+  --fw-regular: 400;
+  --fw-medium: 500;
+
+  /* 形状 */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-pill: 9999px;
+  --hairline: 1px solid var(--border);
+  --dash-rule: repeating-linear-gradient(90deg, var(--dashed) 0 5px, transparent 5px 10px);
+
+  /* 间距（4px 基数的近似刻度） */
+  --sp-1: 4px;
+  --sp-2: 6px;
+  --sp-3: 8px;
+  --sp-4: 12px;
+  --sp-5: 14px;
+  --sp-6: 16px;
+  --sp-7: 20px;
+  --sp-8: 26px;
+  --sp-9: 30px;
+
+  /* 动效：只过渡颜色与边框，不做位移与缩放 */
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --t-fast: 120ms var(--ease);
+  --t-base: 200ms var(--ease);
+
+  /* 布局 */
+  --content-max: 1280px;
+  --card-alpha: 1;
+  /* 顶层一格一卡：目录卡与书签卡同宽同高 */
+  --cell-h: 176px;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg-shell: #131211;
+  --bg-card: #191817;
+  --bg-elev: #1f1e1c;
+  --bg-hover: #242221;
+  --bg-pressed: #2c2a28;
+
+  --text: #f6f5f3;
+  --text-2: #a8a5a2;
+  --text-3: #797674;
+  --on-accent: #f2f7f3;
+
+  --border: #2b2a28;
+  --border-2: #3a3835;
+  --border-strong: #4d4a47;
+  --dashed: rgba(168, 165, 162, 0.38);
+
+  --btn: #2f6b4d;
+  --btn-hover: #3a7f5d;
+  --accent: #8fd087;
+  --accent-tint: rgba(143, 208, 135, 0.14);
+  --danger: #f28b82;
+  --danger-tint: rgba(242, 139, 130, 0.1);
+  --focus: rgba(143, 208, 135, 0.36);
+  --overlay: rgba(0, 0, 0, 0.62);
+}

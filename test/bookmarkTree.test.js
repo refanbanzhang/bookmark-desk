@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   getMoveToIndexPosition,
+  getFolderOrderMovePosition,
   moveNodeToFinalIndexInTree,
   moveNodeToIndexInTree,
   swapNodesInTree
@@ -82,4 +83,36 @@ test('swapNodesInTree swaps two siblings without shifting others', () => {
     swapped[0].children.map((node) => node.id),
     ['b3', 'b2', 'b1']
   )
+})
+
+const makeRootOrder = () => [
+  { id: 'f1', title: '工作台', children: [{ id: 'x1', title: 'Gmail' }] },
+  { id: 'p1', title: '散落书签', url: 'https://example.com/' },
+  { id: 'f2', title: '开发', children: [] },
+  { id: 'f3', title: '阅读', children: [] }
+]
+
+test('getFolderOrderMovePosition places a folder ahead of the folder that follows it', () => {
+  assert.deepEqual(getFolderOrderMovePosition(makeRootOrder(), 'f1', 'f3'), {
+    targetIndex: 2,
+    chromeIndex: 3
+  })
+})
+
+test('getFolderOrderMovePosition appends to the end when nothing follows', () => {
+  assert.deepEqual(getFolderOrderMovePosition(makeRootOrder(), 'f1', null), {
+    targetIndex: 3,
+    chromeIndex: 4
+  })
+})
+
+test('getFolderOrderMovePosition keeps the chrome index for a move upwards', () => {
+  assert.deepEqual(getFolderOrderMovePosition(makeRootOrder(), 'f3', 'f1'), {
+    targetIndex: 0,
+    chromeIndex: 0
+  })
+})
+
+test('getFolderOrderMovePosition rejects nodes that are not top level', () => {
+  assert.equal(getFolderOrderMovePosition(makeTree(), 'b1', 'bar'), null)
 })

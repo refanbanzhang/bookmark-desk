@@ -274,6 +274,26 @@ export const moveNodeInTree = (nodes = [], sourceId, targetFolderId) => {
 
 export const getNodeLocation = (nodes = [], targetId) => findNodeLocation(nodes, targetId)
 
+/**
+ * 顶层目录换位：目录之间只有先后，没有父子关系。
+ * beforeId 为空表示排到顶层末尾；本地索引用「移除自身后」的数组，Chrome 用「含自身」的数组。
+ */
+export const getFolderOrderMovePosition = (nodes = [], sourceId, beforeId = null) => {
+  const position = beforeId
+    ? getMoveBeforePosition(nodes, sourceId, beforeId)
+    : getMoveToIndexPosition(nodes, sourceId, null, nodes.length)
+  const sourceLocation = findNodeLocation(nodes, sourceId)
+
+  if (!position || !sourceLocation || position.parentId !== null || sourceLocation.parentId !== null) {
+    return null
+  }
+
+  return {
+    targetIndex: position.index,
+    chromeIndex: sourceLocation.index <= position.index ? position.index + 1 : position.index
+  }
+}
+
 export const canSwapNodes = (nodes = [], sourceId, targetId) => {
   if (String(sourceId) === String(targetId)) {
     return false
