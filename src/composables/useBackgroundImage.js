@@ -29,7 +29,7 @@ const readFileAsDataUrl = (file) =>
   })
 
 /**
- * 背景图：地址 / 本地上传 / 启用 / 显示强度 / 磨砂强度 / 卡片不透明度。
+ * 背景图：地址 / 本地上传 / 启用 / 卡片不透明度。
  * 打开对话框时以草稿预览，保存后才落盘。
  */
 export const useBackgroundImage = () => {

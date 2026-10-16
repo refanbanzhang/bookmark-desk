@@ -3,8 +3,7 @@ import { watch } from 'vue'
 import {
   CARD_SIZE_PRESETS,
   CJK_FONT_PRESETS,
-  LATIN_FONT_PRESETS,
-  fontFamilyStack
+  LATIN_FONT_PRESETS
 } from '../utils/backgroundSettings'
 import { ensureWebfonts } from '../utils/webfonts'
 import { useBackgroundImage } from '../composables/useBackgroundImage'
@@ -40,7 +39,7 @@ watch(backgroundSettingsOpen, (open) => {
     @close="closeBackgroundSettings"
   >
     <p class="modal__desc">
-      卡片尺寸与字体对所有标签页生效；背景图及其强度、磨砂、卡片不透明度保存后持久化到本地。
+      卡片尺寸与字体对所有标签页生效；背景图和卡片不透明度保存后持久化到本地。
     </p>
 
     <section class="settings-group">
@@ -63,38 +62,28 @@ watch(backgroundSettingsOpen, (open) => {
 
       <div class="field">
         <span class="field__label">西文字体</span>
-        <div class="font-picker">
-          <button
+        <select v-model="backgroundDraft.latinFont" class="field__input">
+          <option
             v-for="preset in LATIN_FONT_PRESETS"
             :key="preset.id"
-            class="font-picker__option"
-            :class="{ 'is-active': backgroundDraft.latinFont === preset.id }"
-            :style="{ fontFamily: fontFamilyStack(preset.id, backgroundDraft.cjkFont) }"
-            :aria-pressed="backgroundDraft.latinFont === preset.id"
-            type="button"
-            @click="backgroundDraft.latinFont = preset.id"
+            :value="preset.id"
           >
             {{ preset.label }}
-          </button>
-        </div>
+          </option>
+        </select>
       </div>
 
       <div class="field">
         <span class="field__label">中文字体</span>
-        <div class="font-picker">
-          <button
+        <select v-model="backgroundDraft.cjkFont" class="field__input">
+          <option
             v-for="preset in CJK_FONT_PRESETS"
             :key="preset.id"
-            class="font-picker__option"
-            :class="{ 'is-active': backgroundDraft.cjkFont === preset.id }"
-            :style="{ fontFamily: fontFamilyStack(backgroundDraft.latinFont, preset.id) }"
-            :aria-pressed="backgroundDraft.cjkFont === preset.id"
-            type="button"
-            @click="backgroundDraft.cjkFont = preset.id"
+            :value="preset.id"
           >
             {{ preset.label }}
-          </button>
-        </div>
+          </option>
+        </select>
       </div>
     </section>
 
@@ -111,36 +100,6 @@ watch(backgroundSettingsOpen, (open) => {
           <button class="btn btn--ghost" type="button" @click="clearBackgroundImage">清除背景</button>
         </div>
       </div>
-
-      <label class="field">
-        <span class="field__label">显示强度</span>
-        <div class="range">
-          <input
-            v-model.number="backgroundDraft.opacity"
-            class="range__input"
-            type="range"
-            min="0.2"
-            max="1"
-            step="0.01"
-          />
-          <output class="range__value">{{ Math.round(backgroundDraft.opacity * 100) }}%</output>
-        </div>
-      </label>
-
-      <label class="field">
-        <span class="field__label">磨砂强度</span>
-        <div class="range">
-          <input
-            v-model.number="backgroundDraft.backdropBlur"
-            class="range__input"
-            type="range"
-            min="0"
-            max="24"
-            step="1"
-          />
-          <output class="range__value">{{ Math.round(backgroundDraft.backdropBlur) }}px</output>
-        </div>
-      </label>
 
       <label class="field">
         <span class="field__label">卡片不透明度</span>

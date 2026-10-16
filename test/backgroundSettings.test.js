@@ -68,7 +68,7 @@ test('normalizes background settings and keeps image-enabled state', () => {
     opacity: 1,
     backdropBlur: 24,
     cardOpacity: 1,
-    cardSize: 2,
+    cardSize: 0,
     latinFont: 'inter',
     cjkFont: 'noto',
     cardBlur: 0,
@@ -109,7 +109,7 @@ test('loads defaults for missing or invalid data', async () => {
     opacity: 0.72,
     backdropBlur: 6,
     cardOpacity: 1,
-    cardSize: 2,
+    cardSize: 0,
     latinFont: 'inter',
     cjkFont: 'noto',
     cardBlur: 0,
@@ -203,13 +203,13 @@ test('clamps card size to a known preset and maps it to css vars', () => {
   assert.deepEqual(cardSizeStyle(0), {
     '--cell-cols': '6',
     '--cell-h': '140px',
-    '--cell-h-tiles': '138px',
+    '--cell-h-tiles': '128px',
     '--cell-row-h': '32px'
   })
   /* 图标尺寸不随档位变，不该出现在档位变量里 */
   assert.equal('--cell-icon' in cardSizeStyle(0), false)
   /* 越界的档位回落到默认档，而不是渲染出 undefined 变量 */
-  assert.equal(cardSizeStyle(7)['--cell-cols'], '4')
+  assert.equal(cardSizeStyle(7)['--cell-cols'], '6')
 })
 
 test('stores uploaded background image outside localStorage', async () => {

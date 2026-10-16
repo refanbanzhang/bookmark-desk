@@ -1,16 +1,16 @@
 export const BACKGROUND_SETTINGS_KEY = 'bookmark-background-settings'
 
-/** 「卡片尺寸」档位：索引即设置值，标准档为默认。四组取值一起改，保证每档都是排好的。
+/** 「卡片尺寸」档位：索引即设置值，特小档为默认。四组取值一起改，保证每档都是排好的。
     图标不在这张表里——换档位只改列数、格子高与卡内行高，图标始终保持 36px。
-    tilesH 最低 138：固定 36px 图标 + 两行标题在内是 129，再低就会把标题压出格。 */
+    tilesH 最低 128：固定 36px 图标 + 两行标题与 host 在内约为 126，再低就会把标题压出格。 */
 export const CARD_SIZE_PRESETS = [
-  { label: '特小', cols: 6, cellH: 140, tilesH: 138, rowH: 32 },
-  { label: '小', cols: 5, cellH: 156, tilesH: 142, rowH: 36 },
-  { label: '标准', cols: 4, cellH: 190, tilesH: 148, rowH: 40 },
-  { label: '大', cols: 3, cellH: 216, tilesH: 164, rowH: 44 }
+  { label: '特小', cols: 6, cellH: 140, tilesH: 128, rowH: 32 },
+  { label: '小', cols: 5, cellH: 156, tilesH: 132, rowH: 36 },
+  { label: '标准', cols: 4, cellH: 190, tilesH: 140, rowH: 40 },
+  { label: '大', cols: 3, cellH: 216, tilesH: 148, rowH: 44 }
 ]
 
-export const DEFAULT_CARD_SIZE = 2
+export const DEFAULT_CARD_SIZE = 0
 
 /** 「西文字体」档位。families 只列自己的字族，系统兜底由 fontFamilyStack 统一追加。
     label 就是字体自己的名字，所以选择器里直接用对应字族渲染，选中前就能看出差别。 */

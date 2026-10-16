@@ -1089,35 +1089,6 @@
   margin-bottom: 0;
 }
 
-/* ---------- 字体选择：每个选项用自己那套字族渲染，选之前就能看出字形差别 ---------- */
-.font-picker {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sp-2);
-}
-
-.font-picker__option {
-  padding: 5px 13px;
-  font-size: var(--fs-body);
-  color: var(--text-2);
-  background: var(--bg-card);
-  border: 1px solid var(--border-2);
-  border-radius: var(--r-pill);
-  cursor: pointer;
-  transition: color var(--t-fast), border-color var(--t-fast), background-color var(--t-fast);
-}
-
-.font-picker__option:hover {
-  color: var(--text);
-  border-color: var(--border-strong);
-}
-
-.font-picker__option.is-active {
-  color: var(--text);
-  border-color: var(--btn);
-  background: var(--accent-tint);
-}
-
 /* ---------- 窄屏：只压低列数上限，不越过用户选的档位 ---------- */
 @media (max-width: 1080px) {
   .group.depth-0 {

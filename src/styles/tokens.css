@@ -83,7 +83,7 @@
      磁贴图标不随档位走，固定 36px，见 .group.depth-0 > .bookmark-item.is-tile > .row */
   --cell-cols: 4;
   --cell-h: 190px;
-  --cell-h-tiles: 148px;
+  --cell-h-tiles: 128px;
   --cell-row-h: 40px;
 }
 
