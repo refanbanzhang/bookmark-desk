@@ -1,5 +1,91 @@
 export const BACKGROUND_SETTINGS_KEY = 'bookmark-background-settings'
 
+/** 「卡片尺寸」档位：索引即设置值，标准档为默认。四组取值一起改，保证每档都是排好的。
+    图标不在这张表里——换档位只改列数、格子高与卡内行高，图标始终保持 36px。
+    tilesH 最低 138：固定 36px 图标 + 两行标题在内是 129，再低就会把标题压出格。 */
+export const CARD_SIZE_PRESETS = [
+  { label: '特小', cols: 6, cellH: 140, tilesH: 138, rowH: 32 },
+  { label: '小', cols: 5, cellH: 156, tilesH: 142, rowH: 36 },
+  { label: '标准', cols: 4, cellH: 190, tilesH: 148, rowH: 40 },
+  { label: '大', cols: 3, cellH: 216, tilesH: 164, rowH: 44 }
+]
+
+export const DEFAULT_CARD_SIZE = 2
+
+/** 「西文字体」档位。families 只列自己的字族，系统兜底由 fontFamilyStack 统一追加。
+    label 就是字体自己的名字，所以选择器里直接用对应字族渲染，选中前就能看出差别。 */
+export const LATIN_FONT_PRESETS = [
+  { id: 'system', label: '系统', families: "-apple-system, 'Segoe UI'" },
+  { id: 'inter', label: 'Inter', families: "'Inter'" },
+  { id: 'geist', label: 'Geist', families: "'Geist'" },
+  { id: 'plex', label: 'Plex', families: "'IBM Plex Sans'" },
+  { id: 'manrope', label: 'Manrope', families: "'Manrope'" }
+]
+
+export const DEFAULT_LATIN_FONT = 'inter'
+
+/** 「中文字体」档位。hrefs 是 webfont 样式表，按需注入（见 utils/webfonts.js）；
+    系统档与思源不带——思源已经由 index.html 的 Google Fonts 链接提供。
+    苹方不能随扩展分发，所以系统档只做本地字族回退。 */
+export const CJK_FONT_PRESETS = [
+  {
+    id: 'system',
+    label: '系统',
+    families: "'PingFang SC', 'Microsoft YaHei', 'Hiragino Sans GB'",
+    hrefs: []
+  },
+  { id: 'noto', label: '思源', families: "'Noto Sans SC'", hrefs: [] },
+  {
+    id: 'misans',
+    label: 'MiSans',
+    families: "'MiSans'",
+    hrefs: [
+      'https://cdn.jsdelivr.net/npm/misans-webfont@4.3.1/misans/misans-regular/result.min.css',
+      'https://cdn.jsdelivr.net/npm/misans-webfont@4.3.1/misans/misans-medium/result.min.css'
+    ]
+  },
+  {
+    id: 'harmony',
+    label: '鸿蒙',
+    families: "'HarmonyOS Sans SC'",
+    hrefs: [
+      'https://cdn.jsdelivr.net/npm/harmonyos-sans-sc-webfont-splitted@1.1.0/dist/Regular.css',
+      'https://cdn.jsdelivr.net/npm/harmonyos-sans-sc-webfont-splitted@1.1.0/dist/Medium.css'
+    ]
+  }
+]
+
+export const DEFAULT_CJK_FONT = 'noto'
+
+export const isKnownLatinFont = (value) =>
+  LATIN_FONT_PRESETS.some((preset) => preset.id === value)
+
+export const isKnownCjkFont = (value) =>
+  CJK_FONT_PRESETS.some((preset) => preset.id === value)
+
+const findPreset = (presets, value, fallbackId) =>
+  presets.find((preset) => preset.id === value) || presets.find((preset) => preset.id === fallbackId)
+
+/** 中文档位必须排在西文与系统兜底之间：苹方这类字族本身就带西文字形，
+    顺序一旦倒过来，中文档位就永远轮不到（system-ui 会先把汉字接走）。 */
+export const fontFamilyStack = (latinFont, cjkFont) =>
+  [
+    findPreset(LATIN_FONT_PRESETS, latinFont, DEFAULT_LATIN_FONT).families,
+    findPreset(CJK_FONT_PRESETS, cjkFont, DEFAULT_CJK_FONT).families,
+    "system-ui, -apple-system, 'Segoe UI', sans-serif"
+  ].join(', ')
+
+export const cardSizeStyle = (cardSize) => {
+  const preset = CARD_SIZE_PRESETS[cardSize] || CARD_SIZE_PRESETS[DEFAULT_CARD_SIZE]
+
+  return {
+    '--cell-cols': String(preset.cols),
+    '--cell-h': `${preset.cellH}px`,
+    '--cell-h-tiles': `${preset.tilesH}px`,
+    '--cell-row-h': `${preset.rowH}px`
+  }
+}
+
 const BACKGROUND_IMAGE_DB_NAME = 'bookmark-background-settings-db'
 const BACKGROUND_IMAGE_STORE_NAME = 'background-assets'
 const BACKGROUND_IMAGE_KEY = 'active-background-image'
@@ -17,6 +103,9 @@ export const createDefaultBackgroundSettings = () => ({
   opacity: 0.72,
   backdropBlur: 6,
   cardOpacity: 1,
+  cardSize: DEFAULT_CARD_SIZE,
+  latinFont: DEFAULT_LATIN_FONT,
+  cjkFont: DEFAULT_CJK_FONT,
   cardBlur: 0,
   cardRadius: 12,
   tabRadius: 10,
@@ -132,15 +221,33 @@ const buildPersistedPayload = async (normalized, imageStore) => {
   }
 }
 
-const resolvePersistedImageUrl = async (parsed, imageStore) => {
-  const imageStorage = toTrimmedString(parsed?.imageStorage)
-  const imageUrl = toTrimmedString(parsed?.imageUrl ?? parsed?.url ?? '')
+const readStoredPayload = (storage) => {
+  try {
+    const raw = storage?.getItem?.(BACKGROUND_SETTINGS_KEY)
+    if (!raw) {
+      return null
+    }
 
-  if (imageStorage === 'indexeddb' || imageUrl === BACKGROUND_IMAGE_FLAG) {
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+const pickStoredImageUrl = (parsed) => toTrimmedString(parsed?.imageUrl ?? parsed?.url ?? '')
+
+/** 上传的图片字节存在 IndexedDB，localStorage 只留一个标记 */
+const isStoredLocalImage = (parsed) =>
+  toTrimmedString(parsed?.imageStorage) === 'indexeddb' ||
+  pickStoredImageUrl(parsed) === BACKGROUND_IMAGE_FLAG
+
+const resolvePersistedImageUrl = async (parsed, imageStore) => {
+  if (isStoredLocalImage(parsed)) {
     return imageStore.getImageUrl()
   }
 
-  return imageUrl
+  return pickStoredImageUrl(parsed)
 }
 
 export const normalizeBackgroundSettings = (value = {}) => {
@@ -150,8 +257,11 @@ export const normalizeBackgroundSettings = (value = {}) => {
   const opacity = Number(value.opacity)
   const backdropBlur = Number(value.backdropBlur)
   const cardOpacity = Number(value.cardOpacity)
+  const cardSize = Number(value.cardSize)
   const cardRadius = Number(value.cardRadius)
   const tabRadius = Number(value.tabRadius ?? value.cardRadius)
+  /* 西文字体早先存在 fontFamily 上，读旧数据时接过来 */
+  const latinFont = value.latinFont ?? value.fontFamily
   const size = ['cover', 'contain', 'auto'].includes(value.size) ? value.size : fallback.size
   const repeat = ['no-repeat', 'repeat', 'repeat-x', 'repeat-y'].includes(value.repeat)
     ? value.repeat
@@ -163,6 +273,11 @@ export const normalizeBackgroundSettings = (value = {}) => {
     opacity: Number.isFinite(opacity) ? clamp(opacity, 0.2, 1) : fallback.opacity,
     backdropBlur: Number.isFinite(backdropBlur) ? clamp(backdropBlur, 0, 24) : fallback.backdropBlur,
     cardOpacity: Number.isFinite(cardOpacity) ? clamp(cardOpacity, 0.2, 1) : fallback.cardOpacity,
+    cardSize: Number.isFinite(cardSize)
+      ? Math.round(clamp(cardSize, 0, CARD_SIZE_PRESETS.length - 1))
+      : fallback.cardSize,
+    latinFont: isKnownLatinFont(latinFont) ? latinFont : fallback.latinFont,
+    cjkFont: isKnownCjkFont(value.cjkFont) ? value.cjkFont : fallback.cjkFont,
     cardBlur: fallback.cardBlur,
     cardRadius: Number.isFinite(cardRadius) ? clamp(cardRadius, 0, 28) : fallback.cardRadius,
     tabRadius: Number.isFinite(tabRadius) ? clamp(tabRadius, 0, 28) : fallback.tabRadius,
@@ -177,14 +292,13 @@ export const loadBackgroundSettings = async (
   imageStore = backgroundImageStore
 ) => {
   const fallback = createDefaultBackgroundSettings()
+  const parsed = readStoredPayload(storage)
+
+  if (!parsed) {
+    return fallback
+  }
 
   try {
-    const raw = storage?.getItem?.(BACKGROUND_SETTINGS_KEY)
-    if (!raw) {
-      return fallback
-    }
-
-    const parsed = JSON.parse(raw)
     const imageUrl = await resolvePersistedImageUrl(parsed, imageStore)
     return normalizeBackgroundSettings({
       ...parsed,
@@ -194,6 +308,28 @@ export const loadBackgroundSettings = async (
     return fallback
   }
 }
+
+/**
+ * 首帧同步快照：设置本体都在 localStorage，只有上传图片的字节在 IndexedDB。
+ * 首次渲染用它当初值，卡片样式才不会先按「无背景图」画一帧再翻转。
+ * 此时本地图片只拿得到标记，imageUrl 先留空，由 hasStoredLocalBackgroundImage 补上「有图」这个事实。
+ */
+export const peekBackgroundSettings = (storage = globalThis.localStorage) => {
+  const parsed = readStoredPayload(storage)
+
+  if (!parsed) {
+    return createDefaultBackgroundSettings()
+  }
+
+  return normalizeBackgroundSettings({
+    ...parsed,
+    imageUrl: isStoredLocalImage(parsed) ? '' : pickStoredImageUrl(parsed)
+  })
+}
+
+/** 同步判断 localStorage 是否标记了一张存在 IndexedDB 的本地背景图 */
+export const hasStoredLocalBackgroundImage = (storage = globalThis.localStorage) =>
+  isStoredLocalImage(readStoredPayload(storage))
 
 export const saveBackgroundSettings = async (
   settings,
@@ -220,10 +356,12 @@ export const saveBackgroundSettings = async (
 }
 
 export const clearBackgroundSettings = async (
+  preserve = {},
   storage = globalThis.localStorage,
   imageStore = backgroundImageStore
 ) => {
   storage?.removeItem?.(BACKGROUND_SETTINGS_KEY)
   await imageStore.clearImageUrl()
-  return createDefaultBackgroundSettings()
+  /* 「清除背景」只该清掉图片，卡片尺寸这类显示偏好要留住 */
+  return normalizeBackgroundSettings({ ...createDefaultBackgroundSettings(), ...preserve })
 }

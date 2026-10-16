@@ -3,6 +3,7 @@ import { computed, onUnmounted, ref } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
 import { hasChildren } from '../utils/bookmarkTree'
 import { useBookmarkDrag, isCardHeadTarget, isRootFolderCardElement } from '../composables/useBookmarkDrag'
+import { startDragPreview } from '../utils/dragPreview'
 import BookmarkRow from './BookmarkRow.vue'
 import BookmarkModule from './BookmarkModule.vue'
 
@@ -45,6 +46,11 @@ const parentIdValue = computed(() =>
 
 const isFolder = (node) => hasChildren(node)
 const isRootFolder = (node) => props.depth === 0 && isFolder(node)
+
+/* 顶层整屏都是散落书签时，格子按磁贴内容收紧，不必跟着目录卡留三行高度 */
+const isTileGrid = computed(
+  () => props.depth === 0 && props.nodes.length > 0 && props.nodes.every((node) => !hasChildren(node))
+)
 
 const getClientPoint = (event) => {
   const source = event?.touches?.[0] || event?.changedTouches?.[0] || event
@@ -112,6 +118,15 @@ const onDragStart = (event) => {
   handleFolderDragTargetChange(null)
 }
 
+/** SortableJS 的 start 是 setTimeout 之后的异步事件，赶不上原生 dragstart，预览得挂在这 */
+const onNativeDragStart = (event) => {
+  const item = event.target
+  if (!item?.classList?.contains('bookmark-item') || item.parentElement !== event.currentTarget) {
+    return
+  }
+  startDragPreview(item, event)
+}
+
 const onDragEnd = (event) => {
   if (isLocalDragging.value) {
     isLocalDragging.value = false
@@ -134,7 +149,7 @@ onUnmounted(() => {
     ref="groupRef"
     tag="ul"
     class="group"
-    :class="depthClass"
+    :class="[depthClass, { 'is-tile-grid': isTileGrid }]"
     :model-value="nodes"
     :data-group-parent-id="parentIdValue"
     draggable="li.bookmark-item"
@@ -147,6 +162,7 @@ onUnmounted(() => {
     :move="onMove"
     @start="onDragStart"
     @end="onDragEnd"
+    @dragstart="onNativeDragStart"
   >
     <li
       v-for="node in nodes"

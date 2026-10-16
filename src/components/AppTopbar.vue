@@ -1,5 +1,5 @@
 <script setup>
-import { Bookmark, Moon, Palette, Sun } from 'lucide-vue-next'
+import { Moon, Palette, Sun } from 'lucide-vue-next'
 import { useBackgroundImage } from '../composables/useBackgroundImage'
 import { useContextMenu } from '../composables/useContextMenu'
 import { useTheme } from '../composables/useTheme'
@@ -21,19 +21,14 @@ const onOpenBackground = () => {
 
 <template>
   <div class="topbar">
-    <div class="brand">
-      <span class="brand__mark" aria-hidden="true">
-        <Bookmark :size="16" :stroke-width="2" />
-      </span>
-      <h1 class="visually-hidden">我的书签</h1>
-    </div>
+    <h1 class="visually-hidden">我的书签</h1>
 
     <div class="topbar__actions">
       <button
         class="icon-btn"
         type="button"
-        aria-label="设置背景"
-        title="设置背景"
+        aria-label="显示设置"
+        title="显示设置"
         @click="onOpenBackground"
       >
         <Palette :size="15" />

@@ -1,17 +1,24 @@
 import { computed, ref } from 'vue'
 import {
+  cardSizeStyle,
   clearBackgroundSettings,
   createDefaultBackgroundSettings,
+  fontFamilyStack,
+  hasStoredLocalBackgroundImage,
   loadBackgroundSettings,
   normalizeBackgroundSettings,
+  peekBackgroundSettings,
   saveBackgroundSettings
 } from '../utils/backgroundSettings'
+import { ensureWebfonts } from '../utils/webfonts'
 
-const backgroundSettings = ref(createDefaultBackgroundSettings())
+const backgroundSettings = ref(peekBackgroundSettings())
 const backgroundDraft = ref(createDefaultBackgroundSettings())
 const backgroundSettingsOpen = ref(false)
 const backgroundError = ref('')
 const backgroundFileInput = ref(null)
+/* 上传图片的字节在 IndexedDB，首帧只同步拿得到「有没有图」。样式靠它才不会先按无背景图画一遍 */
+const pendingLocalImage = ref(hasStoredLocalBackgroundImage())
 
 const readFileAsDataUrl = (file) =>
   new Promise((resolve, reject) => {
@@ -32,38 +39,63 @@ export const useBackgroundImage = () => {
       : backgroundSettings.value
   )
 
-  const hasBackgroundImage = computed(
-    () => previewSettings.value.enabled && Boolean(previewSettings.value.imageUrl)
-  )
+  const hasBackgroundImage = computed(() => {
+    const settings = previewSettings.value
+    /* 对话框里以草稿为准，不再用落盘图片兜底，否则清空地址时预览不会跟着回落 */
+    const pending = backgroundSettingsOpen.value ? false : pendingLocalImage.value
+    return settings.enabled && Boolean(settings.imageUrl || pending)
+  })
+
+  /* 背景图地址与其余样式分开暴露：本地上传的图是数百万字符的 data URL，
+     挂在 :style 上会被 Vue 在组件每次重渲染时整串重写（拖滑块每个事件都要重来一次，
+     一次几十毫秒）。调用方只在它真的变化时写到元素上。 */
+  const backdropImageUrl = computed(() => {
+    const settings = previewSettings.value
+    /* 本地图片的真身还没读回来时没有地址可用，先不铺背景，免得去请求一个空地址 */
+    if (!settings.enabled || !settings.imageUrl) {
+      return ''
+    }
+
+    return `url(${JSON.stringify(settings.imageUrl)})`
+  })
 
   const backdropStyle = computed(() => {
-    if (!hasBackgroundImage.value) {
+    const settings = previewSettings.value
+    if (!settings.enabled || !settings.imageUrl) {
       return {}
     }
 
-    const blur = Number(previewSettings.value.backdropBlur) || 0
+    const blur = Number(settings.backdropBlur) || 0
     const scale = 1 + blur / 180
 
     return {
-      backgroundImage: `url(${JSON.stringify(previewSettings.value.imageUrl)})`,
-      backgroundPosition: previewSettings.value.position,
-      backgroundRepeat: previewSettings.value.repeat,
-      backgroundSize: previewSettings.value.size,
-      opacity: previewSettings.value.opacity,
+      backgroundPosition: settings.position,
+      backgroundRepeat: settings.repeat,
+      backgroundSize: settings.size,
+      opacity: settings.opacity,
       filter: blur > 0 ? `blur(${blur}px)` : 'none',
       transform: blur > 0 ? `scale(${scale})` : 'none'
     }
   })
 
-  // 有背景图时，卡片不透明度决定模块底色，保证文字对比度
+  // 有背景图时，卡片不透明度决定模块底色，保证文字对比度；卡片尺寸整屏生效，与背景图无关
   const shellStyle = computed(() => ({
     '--card-alpha': hasBackgroundImage.value
       ? String(Number(previewSettings.value.cardOpacity) || 1)
-      : '1'
+      : '1',
+    ...cardSizeStyle(previewSettings.value.cardSize),
+    /* 字体写在整屏容器上而不是 :root：弹窗都在 .page-shell 内部，一起换掉才没有漏网的。
+       body 的 font-family 是按 :root 的值算完再继承的，改 --font-sans 覆盖不到它 */
+    fontFamily: fontFamilyStack(
+      previewSettings.value.latinFont,
+      previewSettings.value.cjkFont
+    )
   }))
 
   const initBackgroundSettings = async () => {
     backgroundSettings.value = await loadBackgroundSettings()
+    pendingLocalImage.value = false
+    ensureWebfonts([backgroundSettings.value.cjkFont])
   }
 
   const persistBackgroundSettings = async (nextSettings) => {
@@ -71,6 +103,8 @@ export const useBackgroundImage = () => {
     backgroundSettings.value = saved
     backgroundDraft.value = { ...saved }
     backgroundError.value = ''
+    pendingLocalImage.value = false
+    ensureWebfonts([saved.cjkFont])
     return saved
   }
 
@@ -89,7 +123,7 @@ export const useBackgroundImage = () => {
     const nextImageUrl = backgroundDraft.value.imageUrl.trim()
 
     if (backgroundDraft.value.enabled && !nextImageUrl) {
-      backgroundError.value = '请先填写背景图地址或上传图片。'
+      backgroundError.value = '请先上传一张背景图。'
       return
     }
 
@@ -106,10 +140,15 @@ export const useBackgroundImage = () => {
   }
 
   const clearBackgroundImage = async () => {
-    const cleared = await clearBackgroundSettings()
+    const cleared = await clearBackgroundSettings({
+      cardSize: backgroundDraft.value.cardSize,
+      latinFont: backgroundDraft.value.latinFont,
+      cjkFont: backgroundDraft.value.cjkFont
+    })
     backgroundSettings.value = cleared
     backgroundDraft.value = { ...cleared }
     backgroundError.value = ''
+    pendingLocalImage.value = false
   }
 
   const triggerBackgroundUpload = () => {
@@ -147,6 +186,7 @@ export const useBackgroundImage = () => {
     backgroundFileInput,
     previewSettings,
     hasBackgroundImage,
+    backdropImageUrl,
     backdropStyle,
     shellStyle,
     initBackgroundSettings,

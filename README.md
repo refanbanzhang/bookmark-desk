@@ -4,14 +4,18 @@
 
 ## 特性
 - 利用 `chrome.bookmarks` API 读取书签树，按文件夹/书签区分展示。
-- 顶层是 12 列马赛克：目录卡片占 4 列，散落书签排成小磁贴（图标在上、标题两行、域名在下）。
-- 目录 Tab 切换，卡片内书签按两列磁贴排布，子目录仍占整行；递归渲染并展示域名信息。
-- 书签行使用 Chrome 自带 favicon 缓存中的网站图标（向 `/_favicon` 请求 64px 原图后缩放到 26/34px，读取失败时回退为字母占位）。
+- 顶层一格一卡：目录卡与散落书签卡同宽同高，列数与格子尺寸一起由「卡片尺寸」档位决定，窄屏只压低列数上限、不越过用户选的档位。
+- 卡片尺寸四档（`CARD_SIZE_PRESETS`，索引存在显示设置里）：特小 6 列 / 格子 140px、小 5 列 / 156px、标准 4 列 / 190px（默认）、大 3 列 / 216px；一档同时改 `--cell-cols`、`--cell-h`、`--cell-h-tiles`、`--cell-row-h`，拖动滑杆即时预览。
+- 磁贴图标固定 36px，不随卡片尺寸档位缩放：站点 favicon 多半只有 16/32px，图标框再大字就更糊。
+- 格子高度取 `--cell-h`（要容纳目录卡的三行子项）；若某个标签页顶层全是散落书签、没有目录卡，则整屏改用 `--cell-h-tiles`，避免磁贴被撑出大片空白。
+- 书签卡：图标在上（36px）+ 两行标题 + 域名，内容垂直居中；目录卡：卡头 + 虚线分隔 + 单列紧凑子项，超出格高时在卡内滚动。
+- 目录 Tab 切换，可拖动换位；卡片内递归渲染子目录与书签。
+- 书签行使用 Chrome 自带 favicon 缓存中的网站图标（向 `/_favicon` 请求 64px 原图后缩放到卡内 22px / 磁贴 36px，读取失败时回退为字母占位）。
 - 设置背景图后，目录 Tab 与空态会自动落到卡片面上，保证文字在图片上依然清晰。
 - 拖拽语义按拖动对象区分：拖书签可调顺序，拖到目录卡片标题栏/目录行/顶部 Tab 即移入该目录；拖目录卡片或顶部 Tab 则在同级之间换位排序。
 - 右键菜单支持重命名与删除（文件夹删除走二次确认）。
 - 浅色/深色主题，跟随系统偏好并记忆手动选择。
-- 支持配置页面背景图，可用图片 URL 或本地上传（本地图片存入 IndexedDB），并可调节背景透明度、模糊与卡片不透明度，配置持久化到本地。
+- 「显示设置」对话框（原「背景设置」）里可调卡片尺寸、背景图（URL 或本地上传，本地图存 IndexedDB）、背景透明度、磨砂与卡片不透明度，保存后持久化到本地；「清除背景」只清图片，不会把卡片尺寸一起重置。
 - 视觉语言由设计令牌驱动（`src/styles/tokens.css`），动效只用轻量 CSS 过渡，并遵循 `prefers-reduced-motion`。
 - 可用作 Chrome 新标签页（`chrome_url_overrides.newtab` 指向构建产物）。
 - 在不支持 Chrome API 的环境下自动回退到演示数据，方便调试。
@@ -28,14 +32,22 @@ npm run dev
 ```bash
 npm test          # node --test，覆盖书签树、拖拽索引、背景设置等纯逻辑
 npm run build     # 产物在 dist/
+npm run release   # = build + 打包成 release/bookmark-<version>.zip，供商店上传
+npm run zip       # 只打包现有 dist/，不重新构建
 npm run icons     # 由 public/icons/icon.svg 重新生成 48/128 PNG（需要 rsvg-convert）
 ```
 构建输出目录 `dist/` 可直接作为 Chrome 扩展的 unpacked folder 加载（需确保浏览器版本支持 Manifest V3）。
+`release/` 下的 zip 是 Chrome 应用商店的上传包：`manifest.json` 位于压缩包根目录、不含外层文件夹。
+
+## 发布到 Chrome 应用商店
+提审材料（商店文案、权限理由、隐私政策页模板、截图）在 `docs/store/`，流程见 `docs/store/listing.md`。
+要点：注册开发者账号需一次性 $5；每次上传的 `version` 必须高于商店已发布版本，改界面时记得把
+`public/manifest.json` 与 `package.json` 的版本号一起提升。
 
 ## Chrome 扩展配置
 - `public/manifest.json` 里声明了 `chrome_url_overrides.newtab`，指向 `index.html`。
 - 授权 `bookmarks` 权限以访问用户书签，`favicon` 权限用于读取 Chrome 已缓存的网站图标（不会发起额外网络请求）。
-- 扩展图标源文件是 `public/icons/icon.svg`（深色圆角方块 + 奶白/品牌绿书签），`npm run icons` 生成 `bookmark-48.png` / `bookmark-128.png`；同一份 SVG 也作为页面 favicon。构建时 `public/` 原样拷贝。
+- 扩展图标源文件是 `public/icons/icon.svg`（深色圆角方块 + 奶白线稿书本 + 品牌绿书签带），`npm run icons` 生成 48/128 PNG，同一份 SVG 也作为页面 favicon。构建时 `public/` 原样拷贝。
 - 版本号同时写在 `public/manifest.json` 与 `package.json`，改动界面行为后记得一起提升。
 
 ## 目录结构
@@ -59,10 +71,10 @@ npm run icons     # 由 public/icons/icon.svg 重新生成 48/128 PNG（需要 r
 │   │   ├── useBackgroundImage.js # 背景设置与本地图片存储
 │   │   └── useTheme.js           # 主题读取与切换
 │   ├── components/               # 展示层
-│   │   ├── AppTopbar.vue         # 书签标识与背景 / 主题入口
+│   │   ├── AppTopbar.vue         # 背景 / 主题入口
 │   │   ├── FolderTabs.vue        # 目录 Tab：书签移入目标，也可拖动换位
-│   │   ├── BookmarkBoard.vue     # 骨架屏 / 磁贴网格 / 空状态
-│   │   ├── BookmarkTree.vue      # 递归可拖拽列表（顶层即马赛克网格）
+│   │   ├── BookmarkBoard.vue     # 骨架屏 / 一格一卡网格 / 空状态
+│   │   ├── BookmarkTree.vue      # 递归可拖拽列表（顶层即一格一卡）
 │   │   ├── BookmarkModule.vue    # 目录卡片
 │   │   ├── BookmarkRow.vue       # 书签行 / 子目录行
 │   │   ├── ContextMenu.vue       # 右键菜单

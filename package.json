@@ -1,12 +1,14 @@
 {
   "name": "chrome-bookmarks",
   "private": true,
-  "version": "1.1.0",
+  "version": "1.2.22",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "zip": "node scripts/package.mjs",
+    "release": "npm run build && npm run zip",
     "icons": "rsvg-convert -w 128 -h 128 -o public/icons/bookmark-128.png public/icons/icon.svg && rsvg-convert -w 48 -h 48 -o public/icons/bookmark-48.png public/icons/icon.svg",
     "test": "node --test"
   },

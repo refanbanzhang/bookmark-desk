@@ -16,29 +16,32 @@ defineProps({
   }
 })
 
-const skeletonTiles = [
-  { title: '62%', host: '44%' },
-  { title: '48%', host: '36%' },
-  { title: '70%', host: '50%' },
-  { title: '54%', host: '30%' }
+const skeletonRows = [
+  { title: '62%', host: '40%' },
+  { title: '48%', host: '32%' },
+  { title: '70%', host: '46%' }
 ]
 </script>
 
 <template>
   <div v-if="loading" class="board" aria-hidden="true">
-    <section v-for="module in 2" :key="module" class="module module--skeleton">
-      <div class="module__head">
-        <span class="skeleton" style="width: 40%"></span>
-      </div>
-      <div class="module__rule" aria-hidden="true"></div>
-      <div class="module__body">
-        <div v-for="tile in skeletonTiles" :key="tile.title" class="skeleton__tile">
-          <span class="skeleton skeleton--mark"></span>
-          <span class="skeleton" :style="{ width: tile.title }"></span>
-          <span class="skeleton skeleton--thin" :style="{ width: tile.host }"></span>
+    <div class="group depth-0">
+      <section v-for="card in 3" :key="card" class="module module--skeleton">
+        <div class="module__head">
+          <span class="skeleton" style="width: 40%"></span>
         </div>
-      </div>
-    </section>
+        <!-- 占位不画虚线分隔：它是骨架里最显眼的一笔，数据一到就闪没了；灰条本身几乎看不出 -->
+        <div class="module__body">
+          <div v-for="row in skeletonRows" :key="row.title" class="skeleton__row">
+            <span class="skeleton skeleton--mark"></span>
+            <span class="skeleton__stack">
+              <span class="skeleton" :style="{ width: row.title }"></span>
+              <span class="skeleton skeleton--thin" :style="{ width: row.host }"></span>
+            </span>
+          </div>
+        </div>
+      </section>
+    </div>
   </div>
 
   <div v-else-if="nodes.length" class="board">

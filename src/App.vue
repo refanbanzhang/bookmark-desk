@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, onUnmounted } from 'vue'
+import { onMounted, onUnmounted, ref, watchEffect } from 'vue'
 import { TriangleAlert } from 'lucide-vue-next'
 import AppTopbar from './components/AppTopbar.vue'
 import FolderTabs from './components/FolderTabs.vue'
@@ -20,12 +20,25 @@ const { activeTab, tabOptions, visibleNodes, visibleParentId, switchTab, initAct
   useBookmarkTabs()
 const {
   hasBackgroundImage,
+  backdropImageUrl,
   backdropStyle,
   shellStyle,
   initBackgroundSettings,
   backgroundSettingsOpen,
   closeBackgroundSettings
 } = useBackgroundImage()
+const backdropEl = ref(null)
+
+/* 整张背景图单独写到元素上，不进 :style——本地图片是数百万字符的 data URL，
+   交给 Vue 就会在每次重渲染（含每次拖滑块）整串重写一遍，一次几十毫秒。 */
+watchEffect(
+  () => {
+    if (backdropEl.value) {
+      backdropEl.value.style.backgroundImage = backdropImageUrl.value
+    }
+  },
+  { flush: 'post' }
+)
 const { initTheme } = useTheme()
 const { contextMenu, closeContextMenu } = useContextMenu()
 const { editingNode, deletingNode, closeEdit, closeDeleteConfirm } = useBookmarkActions()
@@ -80,6 +93,7 @@ onUnmounted(() => {
 <template>
   <main class="page-shell" :class="{ 'has-backdrop': hasBackgroundImage }" :style="shellStyle" @click="closeContextMenu">
     <div
+      ref="backdropEl"
       class="page-backdrop"
       :class="{ 'is-active': hasBackgroundImage }"
       :style="backdropStyle"
