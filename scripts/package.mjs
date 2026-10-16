@@ -23,7 +23,7 @@ if (!manifest.version) {
 }
 
 const releaseDir = join(root, 'release')
-const zipPath = join(releaseDir, `bookmark-${manifest.version}.zip`)
+const zipPath = join(releaseDir, `bookmark-desk-${manifest.version}.zip`)
 
 mkdirSync(releaseDir, { recursive: true })
 
@@ -43,5 +43,5 @@ execFileSync(
 )
 
 const sizeKb = Math.round(statSync(zipPath).size / 1024)
-console.log(`已生成 release/bookmark-${manifest.version}.zip（${sizeKb} KB）`)
+console.log(`已生成 release/bookmark-desk-${manifest.version}.zip（${sizeKb} KB）`)
 console.log('上传前确认：manifest.json 与 128x128 图标在压缩包根目录、版本号高于商店已发布版本。')

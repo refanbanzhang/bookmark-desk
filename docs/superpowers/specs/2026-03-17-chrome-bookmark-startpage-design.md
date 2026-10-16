@@ -1,4 +1,4 @@
-# Chrome 书签启动页设计
+# Bookmark Desk 设计
 
 ## 目标
 在 Chrome 中提供一份启动页，取代默认的新标签页并通过 `chrome.bookmarks` API 读取完整书签树，用目录分组方式展示，帮助用户快速定位书签。

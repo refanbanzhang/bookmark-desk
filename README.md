@@ -1,4 +1,4 @@
-# Chrome 书签启动页
+# Bookmark Desk
 
 基于 Vue 3 + Vite，覆盖 Chrome 新标签页并按目录展示书签的轻量扩展。
 
@@ -32,7 +32,7 @@ npm run dev
 ```bash
 npm test          # node --test，覆盖书签树、拖拽索引、背景设置等纯逻辑
 npm run build     # 产物在 dist/
-npm run release   # = build + 打包成 release/bookmark-<version>.zip，供商店上传
+npm run release   # = build + 打包成 release/bookmark-desk-<version>.zip，供商店上传
 npm run zip       # 只打包现有 dist/，不重新构建
 npm run icons     # 由 public/icons/icon.svg 重新生成 48/128 PNG（需要 rsvg-convert）
 ```

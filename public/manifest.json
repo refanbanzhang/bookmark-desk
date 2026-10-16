@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "书签启动页",
-  "short_name": "书签页",
-  "description": "按目录展示 Chrome 书签的启动页，替代默认新标签页。",
+  "name": "Bookmark Desk",
+  "short_name": "Mark Desk",
+  "description": "Organize Chrome bookmarks into a visual new tab page with folders and drag-and-drop sorting.",
   "version": "1.2.22",
   "permissions": [
     "bookmarks",

@@ -15,7 +15,7 @@
 ## 二、打包
 
 ```bash
-npm run release    # = vite build + 打包成 release/bookmark-<version>.zip
+npm run release    # = vite build + 打包成 release/bookmark-desk-<version>.zip
 npm run zip        # 只打包现有 dist/，不重新构建
 ```
 
@@ -31,7 +31,7 @@ npm run zip        # 只打包现有 dist/，不重新构建
 |---|---|
 | 类别 | 生产力工具（Productivity） |
 | 语言 | 中文（简体） |
-| 名称 | 书签启动页 |
+| 名称 | Bookmark Desk |
 | 图标 | `public/icons/bookmark-128.png`（128x128） |
 | 发布范围 | 公开、免费、所有地区 |
 
@@ -44,7 +44,7 @@ npm run zip        # 只打包现有 dist/，不重新构建
 ### 详细说明
 
 ```
-书签启动页把 Chrome 的新标签页换成你自己的书签台：不再显示空白页或导航站，
+Bookmark Desk 把 Chrome 的新标签页换成你自己的书签台：不再显示空白页或导航站，
 打开新标签即见常用站点。
 
 主要功能
@@ -129,5 +129,5 @@ Summary: Turn Chrome's new tab into a tidy grid of your bookmarks, organized by 
 #    package.json         -> version
 npm test
 npm run release
-# 2. 控制台上传 release/bookmark-<version>.zip -> 提交审核
+# 2. 控制台上传 release/bookmark-desk-<version>.zip -> 提交审核
 ```
