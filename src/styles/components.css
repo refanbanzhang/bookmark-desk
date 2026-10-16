@@ -167,6 +167,12 @@
   transition: background-color var(--t-fast), color var(--t-fast), border-color var(--t-fast);
 }
 
+.tab:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+  box-shadow: none;
+}
+
 .tab:hover {
   color: var(--text);
   background: var(--bg-hover);
@@ -356,6 +362,20 @@
 /* 小卡本体已给出悬停态，磁贴不再叠第二层底色 */
 .group.depth-0 > .bookmark-item.is-tile:hover > .row {
   background: transparent;
+}
+
+.group.depth-0 > .bookmark-item.is-tile:focus-within {
+  border-color: var(--focus);
+  box-shadow: 0 0 0 2px var(--focus);
+}
+
+.group.depth-0 > .bookmark-item.is-tile:focus-within > .row {
+  background: transparent;
+}
+
+.group.depth-0 > .bookmark-item.is-tile .row__link:focus-visible {
+  outline: none;
+  box-shadow: none;
 }
 
 /* 卡片化拖拽态：虚线占位优先于卡片描边 */
