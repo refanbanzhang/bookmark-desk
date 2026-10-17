@@ -4,6 +4,7 @@ import { VueDraggable } from 'vue-draggable-plus'
 import { hasChildren } from '../utils/bookmarkTree'
 import { useBookmarkDrag, isCardHeadTarget, isRootFolderCardElement } from '../composables/useBookmarkDrag'
 import { startDragPreview } from '../utils/dragPreview'
+import { useFolderAccess } from '../composables/useFolderAccess'
 import BookmarkRow from './BookmarkRow.vue'
 import BookmarkModule from './BookmarkModule.vue'
 
@@ -46,6 +47,8 @@ const parentIdValue = computed(() =>
 
 const isFolder = (node) => hasChildren(node)
 const isRootFolder = (node) => props.depth === 0 && isFolder(node)
+const { isProtected, isUnlocked } = useFolderAccess()
+const canShowChildren = (node) => !isProtected(node) || isUnlocked(node)
 
 /* 顶层整屏都是散落书签时，格子按磁贴内容收紧，不必跟着目录卡留三行高度 */
 const isTileGrid = computed(
@@ -185,7 +188,7 @@ onUnmounted(() => {
       <template v-else>
         <BookmarkRow :node="node" />
         <BookmarkTree
-          v-if="isFolder(node)"
+          v-if="isFolder(node) && canShowChildren(node)"
           :nodes="node.children"
           :parent-id="node.id"
           :depth="depth + 1"

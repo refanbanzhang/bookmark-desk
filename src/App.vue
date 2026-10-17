@@ -8,12 +8,14 @@ import BackgroundSettingsDialog from './components/BackgroundSettingsDialog.vue'
 import RenameDialog from './components/RenameDialog.vue'
 import DeleteConfirmDialog from './components/DeleteConfirmDialog.vue'
 import ContextMenu from './components/ContextMenu.vue'
+import FolderAccessDialog from './components/FolderAccessDialog.vue'
 import { useBookmarkTree } from './composables/useBookmarkTree'
 import { useBookmarkTabs } from './composables/useBookmarkTabs'
 import { useBookmarkActions } from './composables/useBookmarkActions'
 import { useBackgroundImage } from './composables/useBackgroundImage'
 import { useTheme } from './composables/useTheme'
 import { useContextMenu } from './composables/useContextMenu'
+import { useFolderAccess } from './composables/useFolderAccess'
 
 const { loading, warning, loadBookmarks } = useBookmarkTree()
 const { activeTab, tabOptions, visibleNodes, visibleParentId, switchTab, initActiveTab } =
@@ -41,7 +43,17 @@ watchEffect(
 )
 const { initTheme } = useTheme()
 const { contextMenu, closeContextMenu } = useContextMenu()
+const { requestAccess } = useFolderAccess()
 const { editingNode, deletingNode, closeEdit, closeDeleteConfirm } = useBookmarkActions()
+
+const handleTabSwitch = (tabId) => {
+  const folder = tabOptions.value.find((tab) => tab.id === tabId)?.node
+  if (folder) {
+    requestAccess(folder, () => switchTab(tabId))
+    return
+  }
+  switchTab(tabId)
+}
 
 const handleGlobalKeydown = (event) => {
   if (event.key !== 'Escape') {
@@ -107,7 +119,7 @@ onUnmounted(() => {
         v-if="tabOptions.length"
         :tabs="tabOptions"
         :active-tab="activeTab"
-        @switch="switchTab"
+        @switch="handleTabSwitch"
       />
 
       <p v-if="warning" class="notice" role="status" aria-live="polite">
@@ -121,6 +133,7 @@ onUnmounted(() => {
     <BackgroundSettingsDialog />
     <RenameDialog />
     <DeleteConfirmDialog />
+    <FolderAccessDialog />
     <ContextMenu />
   </main>
 </template>

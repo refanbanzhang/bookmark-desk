@@ -1,11 +1,12 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { ExternalLink, GripVertical } from 'lucide-vue-next'
+import { ExternalLink, GripVertical, LockKeyhole } from 'lucide-vue-next'
 import { hasChildren } from '../utils/bookmarkTree'
 import { getFaviconUrl } from '../utils/favicon'
 import { isBookmarkDragActive, useBookmarkDrag } from '../composables/useBookmarkDrag'
 import { useContextMenu } from '../composables/useContextMenu'
 import { openBookmarkUrl } from '../composables/useChromeBookmarks'
+import { useFolderAccess } from '../composables/useFolderAccess'
 
 const props = defineProps({
   node: {
@@ -16,6 +17,7 @@ const props = defineProps({
 
 const { activeDropFolderId, handleFolderDragTargetChange } = useBookmarkDrag()
 const { openContextMenu } = useContextMenu()
+const { requestAccess, isProtected, isUnlocked } = useFolderAccess()
 
 const isFolder = computed(() => hasChildren(props.node))
 const host = computed(() => {
@@ -44,8 +46,13 @@ const showFavicon = computed(() => Boolean(favicon.value) && !faviconFailed.valu
 const isSelectedDropTarget = computed(
   () => isFolder.value && String(activeDropFolderId.value || '') === String(props.node.id)
 )
+const isLocked = computed(() => isFolder.value && isProtected(props.node) && !isUnlocked(props.node))
 
 const onClick = (event) => {
+  if (isFolder.value) {
+    requestAccess(props.node)
+    return
+  }
   if (!props.node.url || event.target.closest('a')) {
     return
   }
@@ -108,7 +115,8 @@ const onDragLeave = (event) => {
       @error="faviconFailed = true"
     />
     <span v-else class="row__mark" :class="{ 'row__mark--folder': isFolder }" aria-hidden="true">
-      {{ isFolder ? '/' : mark }}
+      <LockKeyhole v-if="isLocked" :size="13" />
+      <template v-else>{{ isFolder ? '/' : mark }}</template>
     </span>
 
     <div class="row__text">

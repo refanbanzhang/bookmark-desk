@@ -482,6 +482,26 @@
   padding: var(--sp-2);
 }
 
+.module__locked {
+  min-height: 132px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: var(--sp-3);
+  padding: var(--sp-5);
+  color: var(--text-2);
+  font-size: var(--fs-body);
+  text-align: center;
+}
+
+.module__locked svg {
+  color: var(--text-3);
+}
+
+.module__locked .btn {
+  gap: var(--sp-2);
+}
+
 /* 卡内子项：单列紧凑横排；子目录与书签同宽 */
 .module__body .group {
   display: grid;

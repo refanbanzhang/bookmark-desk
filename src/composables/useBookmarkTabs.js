@@ -16,7 +16,8 @@ export const useBookmarkTabs = () => {
     if (folders.length) {
       return folders.map((folder) => ({
         id: String(folder.id),
-        label: folder.title || '未命名目录'
+        label: folder.title || '未命名目录',
+        node: folder
       }))
     }
 
