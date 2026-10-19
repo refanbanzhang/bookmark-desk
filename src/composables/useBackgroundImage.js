@@ -65,16 +65,10 @@ export const useBackgroundImage = () => {
       return {}
     }
 
-    const blur = Number(settings.backdropBlur) || 0
-    const scale = 1 + blur / 180
-
     return {
       backgroundPosition: settings.position,
       backgroundRepeat: settings.repeat,
-      backgroundSize: settings.size,
-      opacity: settings.opacity,
-      filter: blur > 0 ? `blur(${blur}px)` : 'none',
-      transform: blur > 0 ? `scale(${scale})` : 'none'
+      backgroundSize: settings.size
     }
   })
 

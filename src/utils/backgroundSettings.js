@@ -100,8 +100,6 @@ let dbPromise = null
 export const createDefaultBackgroundSettings = () => ({
   enabled: false,
   imageUrl: '',
-  opacity: 0.72,
-  backdropBlur: 6,
   cardOpacity: 1,
   cardSize: DEFAULT_CARD_SIZE,
   latinFont: DEFAULT_LATIN_FONT,
@@ -254,8 +252,6 @@ export const normalizeBackgroundSettings = (value = {}) => {
   const fallback = createDefaultBackgroundSettings()
   const imageUrl = toTrimmedString(value.imageUrl ?? value.url ?? '')
   const enabled = value.enabled === undefined ? Boolean(imageUrl) : Boolean(value.enabled)
-  const opacity = Number(value.opacity)
-  const backdropBlur = Number(value.backdropBlur)
   const cardOpacity = Number(value.cardOpacity)
   const cardSize = Number(value.cardSize)
   const cardRadius = Number(value.cardRadius)
@@ -270,8 +266,6 @@ export const normalizeBackgroundSettings = (value = {}) => {
   return {
     enabled,
     imageUrl,
-    opacity: Number.isFinite(opacity) ? clamp(opacity, 0.2, 1) : fallback.opacity,
-    backdropBlur: Number.isFinite(backdropBlur) ? clamp(backdropBlur, 0, 24) : fallback.backdropBlur,
     cardOpacity: Number.isFinite(cardOpacity) ? clamp(cardOpacity, 0.2, 1) : fallback.cardOpacity,
     cardSize: Number.isFinite(cardSize)
       ? Math.round(clamp(cardSize, 0, CARD_SIZE_PRESETS.length - 1))

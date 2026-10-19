@@ -52,8 +52,6 @@ const createImageStore = (initial = '') => {
 test('normalizes background settings and keeps image-enabled state', () => {
   const settings = normalizeBackgroundSettings({
     imageUrl: '  https://example.com/bg.jpg  ',
-    opacity: 2,
-    backdropBlur: 30,
     cardOpacity: 2,
     cardBlur: 99,
     cardRadius: 99,
@@ -65,8 +63,6 @@ test('normalizes background settings and keeps image-enabled state', () => {
   assert.deepEqual(settings, {
     enabled: true,
     imageUrl: 'https://example.com/bg.jpg',
-    opacity: 1,
-    backdropBlur: 24,
     cardOpacity: 1,
     cardSize: 0,
     latinFont: 'inter',
@@ -106,8 +102,6 @@ test('loads defaults for missing or invalid data', async () => {
   assert.deepEqual(await loadBackgroundSettings(storage), {
     enabled: false,
     imageUrl: '',
-    opacity: 0.72,
-    backdropBlur: 6,
     cardOpacity: 1,
     cardSize: 0,
     latinFont: 'inter',
@@ -251,8 +245,7 @@ test('peek keeps the layout state but leaves the local image url empty', () => {
       enabled: true,
       imageUrl: '__indexeddb_background_image__',
       imageStorage: 'indexeddb',
-      cardSize: 1,
-      opacity: 0.5
+      cardSize: 1
     })
   })
   const peeked = peekBackgroundSettings(storage)
@@ -261,7 +254,6 @@ test('peek keeps the layout state but leaves the local image url empty', () => {
   assert.equal(peeked.enabled, true)
   assert.equal(peeked.imageUrl, '')
   assert.equal(peeked.cardSize, 1)
-  assert.equal(peeked.opacity, 0.5)
   assert.equal(hasStoredLocalBackgroundImage(storage), true)
 })
 
