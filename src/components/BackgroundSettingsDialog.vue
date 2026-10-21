@@ -97,7 +97,7 @@ watch(backgroundSettingsOpen, (open) => {
     </section>
 
     <section class="settings-group">
-      <h4 class="settings-group__title">背景图</h4>
+      <h4 class="settings-group__title">背景</h4>
 
       <div class="settings-group__row">
         <label class="switch">
@@ -105,7 +105,7 @@ watch(backgroundSettingsOpen, (open) => {
           启用背景图
         </label>
         <div class="actions-row">
-          <button class="btn btn--ghost" type="button" @click="triggerBackgroundUpload">上传本地图片</button>
+          <button class="btn btn--ghost" type="button" @click="triggerBackgroundUpload">上传图片或视频</button>
           <button class="btn btn--ghost" type="button" @click="clearBackgroundImage">清除背景</button>
         </div>
       </div>
@@ -137,7 +137,7 @@ watch(backgroundSettingsOpen, (open) => {
       ref="backgroundFileInput"
       class="visually-hidden"
       type="file"
-      accept="image/*"
+      accept="image/*,video/mp4"
       @change="handleBackgroundUpload"
     />
   </BaseModal>

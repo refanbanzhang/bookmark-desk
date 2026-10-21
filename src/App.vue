@@ -22,12 +22,15 @@ const { activeTab, tabOptions, visibleNodes, visibleParentId, switchTab, initAct
   useBookmarkTabs()
 const {
   hasBackgroundImage,
+  hasBackgroundVideo,
   backdropImageUrl,
+  backdropVideoUrl,
   backdropStyle,
   shellStyle,
   initBackgroundSettings,
   backgroundSettingsOpen,
-  closeBackgroundSettings
+  closeBackgroundSettings,
+  releaseBackgroundVideo
 } = useBackgroundImage()
 const backdropEl = ref(null)
 
@@ -99,6 +102,7 @@ onUnmounted(() => {
   window.removeEventListener('resize', handleViewportChange)
   window.removeEventListener('scroll', handleViewportChange, true)
   window.removeEventListener('keydown', handleGlobalKeydown)
+  releaseBackgroundVideo()
 })
 </script>
 
@@ -110,7 +114,18 @@ onUnmounted(() => {
       :class="{ 'is-active': hasBackgroundImage }"
       :style="backdropStyle"
       aria-hidden="true"
-    ></div>
+    >
+      <video
+        v-if="hasBackgroundVideo"
+        class="page-backdrop__video"
+        :src="backdropVideoUrl"
+        autoplay
+        loop
+        muted
+        playsinline
+        aria-hidden="true"
+      ></video>
+    </div>
 
     <div class="app-content">
       <AppTopbar />

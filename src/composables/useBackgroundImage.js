@@ -19,6 +19,7 @@ const backgroundError = ref('')
 const backgroundFileInput = ref(null)
 /* 上传图片的字节在 IndexedDB，首帧只同步拿得到「有没有图」。样式靠它才不会先按无背景图画一遍 */
 const pendingLocalImage = ref(hasStoredLocalBackgroundImage())
+let activeVideoObjectUrl = ''
 
 const readFileAsDataUrl = (file) =>
   new Promise((resolve, reject) => {
@@ -46,13 +47,17 @@ export const useBackgroundImage = () => {
     return settings.enabled && Boolean(settings.imageUrl || pending)
   })
 
-  /* 背景图地址与其余样式分开暴露：本地上传的图是数百万字符的 data URL，
+  const hasBackgroundVideo = computed(() =>
+    hasBackgroundImage.value && previewSettings.value.mediaType === 'video'
+  )
+
+  /* 背景资源地址与其余样式分开暴露：本地上传的图片是数百万字符的 data URL，
      挂在 :style 上会被 Vue 在组件每次重渲染时整串重写（拖滑块每个事件都要重来一次，
      一次几十毫秒）。调用方只在它真的变化时写到元素上。 */
   const backdropImageUrl = computed(() => {
     const settings = previewSettings.value
     /* 本地图片的真身还没读回来时没有地址可用，先不铺背景，免得去请求一个空地址 */
-    if (!settings.enabled || !settings.imageUrl) {
+    if (settings.mediaType !== 'image' || !settings.enabled || !settings.imageUrl) {
       return ''
     }
 
@@ -72,6 +77,13 @@ export const useBackgroundImage = () => {
     }
   })
 
+  const backdropVideoUrl = computed(() => {
+    const settings = previewSettings.value
+    return settings.mediaType === 'video' && settings.enabled && typeof settings.imageUrl === 'string'
+      ? settings.imageUrl
+      : ''
+  })
+
   // 有背景图时，卡片不透明度决定模块底色，保证文字对比度；卡片尺寸整屏生效，与背景图无关
   const shellStyle = computed(() => ({
     '--card-alpha': hasBackgroundImage.value
@@ -88,14 +100,28 @@ export const useBackgroundImage = () => {
 
   const initBackgroundSettings = async () => {
     backgroundSettings.value = await loadBackgroundSettings()
+    if (backgroundSettings.value.mediaType === 'video') {
+      activeVideoObjectUrl = backgroundSettings.value.imageUrl
+    }
     pendingLocalImage.value = false
     ensureWebfonts([backgroundSettings.value.cjkFont])
   }
 
   const persistBackgroundSettings = async (nextSettings) => {
     const saved = await saveBackgroundSettings(nextSettings)
-    backgroundSettings.value = saved
-    backgroundDraft.value = { ...saved }
+    const runtimeSettings = { ...saved }
+    if (runtimeSettings.mediaType === 'video' && runtimeSettings.imageUrl instanceof Blob) {
+      if (activeVideoObjectUrl) {
+        URL.revokeObjectURL(activeVideoObjectUrl)
+      }
+      activeVideoObjectUrl = URL.createObjectURL(runtimeSettings.imageUrl)
+      runtimeSettings.imageUrl = activeVideoObjectUrl
+    } else if (runtimeSettings.mediaType !== 'video' && activeVideoObjectUrl) {
+      URL.revokeObjectURL(activeVideoObjectUrl)
+      activeVideoObjectUrl = ''
+    }
+    backgroundSettings.value = runtimeSettings
+    backgroundDraft.value = { ...runtimeSettings }
     backgroundError.value = ''
     pendingLocalImage.value = false
     ensureWebfonts([saved.cjkFont])
@@ -114,7 +140,9 @@ export const useBackgroundImage = () => {
   }
 
   const saveBackgroundSettingsForm = async () => {
-    const nextImageUrl = backgroundDraft.value.imageUrl.trim()
+    const nextImageUrl = typeof backgroundDraft.value.imageUrl === 'string'
+      ? backgroundDraft.value.imageUrl.trim()
+      : backgroundDraft.value.imageUrl
 
     if (backgroundDraft.value.enabled && !nextImageUrl) {
       backgroundError.value = '请先上传一张背景图。'
@@ -124,7 +152,9 @@ export const useBackgroundImage = () => {
     try {
       await persistBackgroundSettings({
         ...backgroundDraft.value,
-        imageUrl: nextImageUrl,
+        imageUrl: backgroundDraft.value.mediaType === 'video'
+          ? backgroundDraft.value.imageUrl
+          : nextImageUrl,
         enabled: backgroundDraft.value.enabled
       })
       closeBackgroundSettings()
@@ -143,10 +173,21 @@ export const useBackgroundImage = () => {
     backgroundDraft.value = { ...cleared }
     backgroundError.value = ''
     pendingLocalImage.value = false
+    if (activeVideoObjectUrl) {
+      URL.revokeObjectURL(activeVideoObjectUrl)
+      activeVideoObjectUrl = ''
+    }
   }
 
   const triggerBackgroundUpload = () => {
     backgroundFileInput.value?.click?.()
+  }
+
+  const releaseBackgroundVideo = () => {
+    if (activeVideoObjectUrl) {
+      URL.revokeObjectURL(activeVideoObjectUrl)
+      activeVideoObjectUrl = ''
+    }
   }
 
   const handleBackgroundUpload = async (event) => {
@@ -157,14 +198,20 @@ export const useBackgroundImage = () => {
       return
     }
 
-    if (!file.type.startsWith('image/')) {
-      backgroundError.value = '请选择图片文件。'
+    const isMp4 = file.type === 'video/mp4' || file.name.toLowerCase().endsWith('.mp4')
+    if (!file.type.startsWith('image/') && !isMp4) {
+      backgroundError.value = '请选择图片或 MP4 视频文件。'
       return
     }
 
     try {
-      const dataUrl = await readFileAsDataUrl(file)
-      backgroundDraft.value.imageUrl = dataUrl
+      if (isMp4) {
+        backgroundDraft.value.imageUrl = file
+        backgroundDraft.value.mediaType = 'video'
+      } else {
+        backgroundDraft.value.imageUrl = await readFileAsDataUrl(file)
+        backgroundDraft.value.mediaType = 'image'
+      }
       backgroundDraft.value.enabled = true
       backgroundError.value = ''
     } catch (error) {
@@ -180,7 +227,9 @@ export const useBackgroundImage = () => {
     backgroundFileInput,
     previewSettings,
     hasBackgroundImage,
+    hasBackgroundVideo,
     backdropImageUrl,
+    backdropVideoUrl,
     backdropStyle,
     shellStyle,
     initBackgroundSettings,
@@ -189,6 +238,7 @@ export const useBackgroundImage = () => {
     saveBackgroundSettingsForm,
     clearBackgroundImage,
     triggerBackgroundUpload,
-    handleBackgroundUpload
+    handleBackgroundUpload,
+    releaseBackgroundVideo
   }
 }

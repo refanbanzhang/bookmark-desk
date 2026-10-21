@@ -105,7 +105,9 @@ export const cardSizeStyle = (cardSize) => {
 const BACKGROUND_IMAGE_DB_NAME = 'bookmark-background-settings-db'
 const BACKGROUND_IMAGE_STORE_NAME = 'background-assets'
 const BACKGROUND_IMAGE_KEY = 'active-background-image'
+const BACKGROUND_VIDEO_KEY = 'active-background-video'
 const BACKGROUND_IMAGE_FLAG = '__indexeddb_background_image__'
+const BACKGROUND_VIDEO_FLAG = '__indexeddb_background_video__'
 const QUOTA_ERROR_NAMES = new Set([
   'QuotaExceededError',
   'NS_ERROR_DOM_QUOTA_REACHED'
@@ -115,6 +117,7 @@ let dbPromise = null
 
 export const createDefaultBackgroundSettings = () => ({
   enabled: false,
+  mediaType: 'image',
   imageUrl: '',
   cardOpacity: 1,
   cardSize: DEFAULT_CARD_SIZE,
@@ -131,8 +134,10 @@ export const createDefaultBackgroundSettings = () => ({
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value))
 
 const toTrimmedString = (value) => (typeof value === 'string' ? value.trim() : '')
+const isBlob = (value) => typeof Blob !== 'undefined' && value instanceof Blob
 
 const isEmbeddedImageUrl = (value) => /^data:image\//.test(toTrimmedString(value))
+const isEmbeddedVideoUrl = (value) => /^data:video\//.test(toTrimmedString(value))
 
 const isQuotaError = (error) =>
   error instanceof Error && (QUOTA_ERROR_NAMES.has(error.name) || error.message.includes('quota'))
@@ -210,12 +215,69 @@ const backgroundImageStore = {
     })
 
     return cleared !== false
+  },
+
+  async getVideo() {
+    const entry = await withStore('readonly', (store, resolve) => {
+      const req = store.get(BACKGROUND_VIDEO_KEY)
+      req.onsuccess = () => resolve(req.result?.value || null)
+      req.onerror = () => resolve(null)
+    })
+
+    return entry instanceof Blob ? entry : null
+  },
+
+  async setVideo(video) {
+    const saved = await withStore('readwrite', (store, resolve) => {
+      const req = store.put({
+        key: BACKGROUND_VIDEO_KEY,
+        value: video,
+        updatedAt: Date.now()
+      })
+      req.onsuccess = () => resolve(true)
+      req.onerror = () => resolve(false)
+    })
+
+    return saved === true
+  },
+
+  async clearVideo() {
+    const cleared = await withStore('readwrite', (store, resolve) => {
+      const req = store.delete(BACKGROUND_VIDEO_KEY)
+      req.onsuccess = () => resolve(true)
+      req.onerror = () => resolve(false)
+    })
+
+    return cleared !== false
   }
 }
 
 const buildPersistedPayload = async (normalized, imageStore) => {
+  if (normalized.mediaType === 'video') {
+    if (isBlob(normalized.imageUrl) || isEmbeddedVideoUrl(normalized.imageUrl)) {
+      const stored = imageStore.setVideo
+        ? await imageStore.setVideo(normalized.imageUrl)
+        : false
+      if (!stored) {
+        throw new Error('本地视频保存失败，请重试或换一个视频文件。')
+      }
+    } else if (!/^blob:/.test(normalized.imageUrl)) {
+      throw new Error('视频资源已失效，请重新上传 MP4 文件。')
+    }
+
+    await imageStore.clearImageUrl()
+    return {
+      ...normalized,
+      imageUrl: BACKGROUND_VIDEO_FLAG,
+      imageStorage: 'indexeddb'
+    }
+  }
+
   if (!isEmbeddedImageUrl(normalized.imageUrl)) {
     await imageStore.clearImageUrl()
+    if (imageStore.clearVideo) {
+      await imageStore.clearVideo()
+    }
     return {
       ...normalized,
       imageUrl: normalized.imageUrl,
@@ -256,7 +318,17 @@ const isStoredLocalImage = (parsed) =>
   toTrimmedString(parsed?.imageStorage) === 'indexeddb' ||
   pickStoredImageUrl(parsed) === BACKGROUND_IMAGE_FLAG
 
+const isStoredLocalVideo = (parsed) =>
+  pickStoredImageUrl(parsed) === BACKGROUND_VIDEO_FLAG ||
+  (toTrimmedString(parsed?.mediaType) === 'video' &&
+    toTrimmedString(parsed?.imageStorage) === 'indexeddb')
+
 const resolvePersistedImageUrl = async (parsed, imageStore) => {
+  if (isStoredLocalVideo(parsed)) {
+    const video = imageStore.getVideo ? await imageStore.getVideo() : null
+    return video ? URL.createObjectURL(video) : ''
+  }
+
   if (isStoredLocalImage(parsed)) {
     return imageStore.getImageUrl()
   }
@@ -266,7 +338,9 @@ const resolvePersistedImageUrl = async (parsed, imageStore) => {
 
 export const normalizeBackgroundSettings = (value = {}) => {
   const fallback = createDefaultBackgroundSettings()
-  const imageUrl = toTrimmedString(value.imageUrl ?? value.url ?? '')
+  const rawImageUrl = value.imageUrl ?? value.url ?? ''
+  const imageUrl = isBlob(rawImageUrl) ? rawImageUrl : toTrimmedString(rawImageUrl)
+  const mediaType = value.mediaType === 'video' ? 'video' : fallback.mediaType
   const enabled = value.enabled === undefined ? Boolean(imageUrl) : Boolean(value.enabled)
   const cardOpacity = Number(value.cardOpacity)
   const cardSize = Number(value.cardSize)
@@ -281,6 +355,7 @@ export const normalizeBackgroundSettings = (value = {}) => {
 
   return {
     enabled,
+    mediaType,
     imageUrl,
     cardOpacity: Number.isFinite(cardOpacity) ? clamp(cardOpacity, 0.2, 1) : fallback.cardOpacity,
     cardSize: Number.isFinite(cardSize)
@@ -355,6 +430,9 @@ export const saveBackgroundSettings = async (
   } catch (error) {
     if (persisted.imageStorage === 'indexeddb') {
       await imageStore.clearImageUrl()
+      if (normalized.mediaType === 'video' && imageStore.clearVideo) {
+        await imageStore.clearVideo()
+      }
     }
 
     if (isQuotaError(error)) {
@@ -372,6 +450,9 @@ export const clearBackgroundSettings = async (
 ) => {
   storage?.removeItem?.(BACKGROUND_SETTINGS_KEY)
   await imageStore.clearImageUrl()
+  if (imageStore.clearVideo) {
+    await imageStore.clearVideo()
+  }
   /* 「清除背景」只该清掉图片，卡片尺寸这类显示偏好要留住 */
   return normalizeBackgroundSettings({ ...createDefaultBackgroundSettings(), ...preserve })
 }

@@ -35,6 +35,7 @@ const createMemoryStorage = (initial = {}) => {
 
 const createImageStore = (initial = '') => {
   let imageUrl = initial
+  let video = null
   return {
     getImageUrl: async () => imageUrl,
     setImageUrl: async (nextImageUrl) => {
@@ -45,7 +46,17 @@ const createImageStore = (initial = '') => {
       imageUrl = ''
       return true
     },
-    peek: () => imageUrl
+    getVideo: async () => video,
+    setVideo: async (nextVideo) => {
+      video = nextVideo
+      return true
+    },
+    clearVideo: async () => {
+      video = null
+      return true
+    },
+    peek: () => imageUrl,
+    peekVideo: () => video
   }
 }
 
@@ -62,6 +73,7 @@ test('normalizes background settings and keeps image-enabled state', () => {
 
   assert.deepEqual(settings, {
     enabled: true,
+    mediaType: 'image',
     imageUrl: 'https://example.com/bg.jpg',
     cardOpacity: 1,
     cardSize: 0,
@@ -101,6 +113,7 @@ test('loads defaults for missing or invalid data', async () => {
 
   assert.deepEqual(await loadBackgroundSettings(storage), {
     enabled: false,
+    mediaType: 'image',
     imageUrl: '',
     cardOpacity: 1,
     cardSize: 0,
@@ -220,6 +233,24 @@ test('stores uploaded background image outside localStorage', async () => {
   assert.equal(persisted.imageStorage, 'indexeddb')
   assert.equal(imageStore.peek(), dataUrl)
   assert.equal(loaded.imageUrl, dataUrl)
+})
+
+test('stores uploaded MP4 background video as a Blob outside localStorage', async () => {
+  const storage = createMemoryStorage()
+  const imageStore = createImageStore()
+  const video = new Blob(['video'], { type: 'video/mp4' })
+
+  const saved = await saveBackgroundSettings(
+    { mediaType: 'video', imageUrl: video, enabled: true },
+    storage,
+    imageStore
+  )
+  const persisted = JSON.parse(storage.dump()[BACKGROUND_SETTINGS_KEY])
+
+  assert.equal(saved.mediaType, 'video')
+  assert.equal(persisted.imageUrl, '__indexeddb_background_video__')
+  assert.equal(persisted.imageStorage, 'indexeddb')
+  assert.equal(imageStore.peekVideo(), video)
 })
 
 test('peeks the stored settings synchronously for the first render', () => {
