@@ -21,11 +21,20 @@ const {
   handleBackgroundUpload
 } = useBackgroundImage()
 
+const availableLatinFonts = LATIN_FONT_PRESETS.filter((preset) => !preset.legacy)
+const availableCjkFonts = CJK_FONT_PRESETS.filter((preset) => !preset.legacy)
+
 /* 各档中文字族的样式表在选中前不会加载，所以打开面板时统一注入，
    每颗按钮才能用自己的字形当预览——这几十 KB 只在面板打开时才花 */
 watch(backgroundSettingsOpen, (open) => {
   if (open) {
-    ensureWebfonts(CJK_FONT_PRESETS.filter((preset) => !preset.legacy).map((preset) => preset.id))
+    console.debug('[background-settings] opened', {
+      latinFontCount: availableLatinFonts.length,
+      cjkFontCount: availableCjkFonts.length,
+      selectedLatinFont: backgroundDraft.value.latinFont,
+      selectedCjkFont: backgroundDraft.value.cjkFont
+    })
+    ensureWebfonts(availableCjkFonts.map((preset) => preset.id))
   }
 })
 </script>
@@ -64,10 +73,9 @@ watch(backgroundSettingsOpen, (open) => {
         <span class="field__label">西文字体</span>
         <select v-model="backgroundDraft.latinFont" class="field__input">
           <option
-            v-for="preset in LATIN_FONT_PRESETS"
+            v-for="preset in availableLatinFonts"
             :key="preset.id"
             :value="preset.id"
-            v-if="!preset.legacy"
           >
             {{ preset.label }}
           </option>
@@ -78,10 +86,9 @@ watch(backgroundSettingsOpen, (open) => {
         <span class="field__label">中文字体</span>
         <select v-model="backgroundDraft.cjkFont" class="field__input">
           <option
-            v-for="preset in CJK_FONT_PRESETS"
+            v-for="preset in availableCjkFonts"
             :key="preset.id"
             :value="preset.id"
-            v-if="!preset.legacy"
           >
             {{ preset.label }}
           </option>
