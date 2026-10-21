@@ -20,6 +20,8 @@ const backgroundFileInput = ref(null)
 /* 上传图片的字节在 IndexedDB，首帧只同步拿得到「有没有图」。样式靠它才不会先按无背景图画一遍 */
 const pendingLocalImage = ref(hasStoredLocalBackgroundImage())
 let activeVideoObjectUrl = ''
+let draftVideoObjectUrl = ''
+const videoDraftFile = ref(null)
 
 const readFileAsDataUrl = (file) =>
   new Promise((resolve, reject) => {
@@ -84,6 +86,14 @@ export const useBackgroundImage = () => {
       : ''
   })
 
+  const releaseDraftVideo = () => {
+    if (draftVideoObjectUrl) {
+      URL.revokeObjectURL(draftVideoObjectUrl)
+      draftVideoObjectUrl = ''
+    }
+    videoDraftFile.value = null
+  }
+
   // 有背景图时，卡片不透明度决定模块底色，保证文字对比度；卡片尺寸整屏生效，与背景图无关
   const shellStyle = computed(() => ({
     '--card-alpha': hasBackgroundImage.value
@@ -120,6 +130,7 @@ export const useBackgroundImage = () => {
       URL.revokeObjectURL(activeVideoObjectUrl)
       activeVideoObjectUrl = ''
     }
+    releaseDraftVideo()
     backgroundSettings.value = runtimeSettings
     backgroundDraft.value = { ...runtimeSettings }
     backgroundError.value = ''
@@ -129,12 +140,14 @@ export const useBackgroundImage = () => {
   }
 
   const openBackgroundSettings = () => {
+    releaseDraftVideo()
     backgroundDraft.value = { ...backgroundSettings.value }
     backgroundError.value = ''
     backgroundSettingsOpen.value = true
   }
 
   const closeBackgroundSettings = () => {
+    releaseDraftVideo()
     backgroundSettingsOpen.value = false
     backgroundError.value = ''
   }
@@ -153,7 +166,7 @@ export const useBackgroundImage = () => {
       await persistBackgroundSettings({
         ...backgroundDraft.value,
         imageUrl: backgroundDraft.value.mediaType === 'video'
-          ? backgroundDraft.value.imageUrl
+          ? videoDraftFile.value || backgroundDraft.value.imageUrl
           : nextImageUrl,
         enabled: backgroundDraft.value.enabled
       })
@@ -164,6 +177,7 @@ export const useBackgroundImage = () => {
   }
 
   const clearBackgroundImage = async () => {
+    releaseDraftVideo()
     const cleared = await clearBackgroundSettings({
       cardSize: backgroundDraft.value.cardSize,
       latinFont: backgroundDraft.value.latinFont,
@@ -184,6 +198,7 @@ export const useBackgroundImage = () => {
   }
 
   const releaseBackgroundVideo = () => {
+    releaseDraftVideo()
     if (activeVideoObjectUrl) {
       URL.revokeObjectURL(activeVideoObjectUrl)
       activeVideoObjectUrl = ''
@@ -206,9 +221,13 @@ export const useBackgroundImage = () => {
 
     try {
       if (isMp4) {
-        backgroundDraft.value.imageUrl = file
+        releaseDraftVideo()
+        draftVideoObjectUrl = URL.createObjectURL(file)
+        backgroundDraft.value.imageUrl = draftVideoObjectUrl
+        videoDraftFile.value = file
         backgroundDraft.value.mediaType = 'video'
       } else {
+        releaseDraftVideo()
         backgroundDraft.value.imageUrl = await readFileAsDataUrl(file)
         backgroundDraft.value.mediaType = 'image'
       }
