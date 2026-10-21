@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { LockKeyhole } from 'lucide-vue-next'
 import BaseModal from './BaseModal.vue'
 import { useFolderAccess } from '../composables/useFolderAccess'
@@ -16,6 +16,8 @@ const {
 const password = ref('')
 const nextPassword = ref('')
 const confirmPassword = ref('')
+const passwordInput = ref(null)
+const nextPasswordInput = ref(null)
 
 const isUnlock = computed(() => accessMode.value === 'unlock')
 const isRemove = computed(() => accessMode.value === 'remove')
@@ -33,7 +35,20 @@ const reset = () => {
   confirmPassword.value = ''
 }
 
-watch(accessDialog, reset)
+watch(
+  () => accessDialog.value.mode,
+  async (mode) => {
+    reset()
+    if (!mode) return
+
+    await nextTick()
+    const input = isUnlock.value || isRemove.value || isChange.value
+      ? passwordInput.value
+      : nextPasswordInput.value
+    input?.focus()
+  },
+  { immediate: true }
+)
 
 const onSubmit = () => {
   if (!isUnlock.value && !isRemove.value && nextPassword.value !== confirmPassword.value) {
@@ -58,6 +73,7 @@ const onSubmit = () => {
     <label v-if="isUnlock || isRemove || isChange" class="field">
       <span class="field__label">{{ isUnlock || isRemove ? '访问密码' : isChange ? '当前密码' : '密码' }}</span>
       <input
+        ref="passwordInput"
         v-model="password"
         class="field__input"
         type="password"
@@ -69,7 +85,13 @@ const onSubmit = () => {
     <template v-if="!isUnlock && !isRemove">
       <label class="field">
         <span class="field__label">新密码</span>
-        <input v-model="nextPassword" class="field__input" type="password" autocomplete="new-password" />
+        <input
+          ref="nextPasswordInput"
+          v-model="nextPassword"
+          class="field__input"
+          type="password"
+          autocomplete="new-password"
+        />
       </label>
       <label class="field">
         <span class="field__label">确认新密码</span>

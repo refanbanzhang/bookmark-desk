@@ -25,7 +25,7 @@ const {
    每颗按钮才能用自己的字形当预览——这几十 KB 只在面板打开时才花 */
 watch(backgroundSettingsOpen, (open) => {
   if (open) {
-    ensureWebfonts(CJK_FONT_PRESETS.map((preset) => preset.id))
+    ensureWebfonts(CJK_FONT_PRESETS.filter((preset) => !preset.legacy).map((preset) => preset.id))
   }
 })
 </script>
@@ -67,6 +67,7 @@ watch(backgroundSettingsOpen, (open) => {
             v-for="preset in LATIN_FONT_PRESETS"
             :key="preset.id"
             :value="preset.id"
+            v-if="!preset.legacy"
           >
             {{ preset.label }}
           </option>
@@ -80,6 +81,7 @@ watch(backgroundSettingsOpen, (open) => {
             v-for="preset in CJK_FONT_PRESETS"
             :key="preset.id"
             :value="preset.id"
+            v-if="!preset.legacy"
           >
             {{ preset.label }}
           </option>

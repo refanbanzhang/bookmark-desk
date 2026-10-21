@@ -17,9 +17,16 @@ export const DEFAULT_CARD_SIZE = 0
 export const LATIN_FONT_PRESETS = [
   { id: 'system', label: '系统', families: "-apple-system, 'Segoe UI'" },
   { id: 'inter', label: 'Inter', families: "'Inter'" },
-  { id: 'geist', label: 'Geist', families: "'Geist'" },
-  { id: 'plex', label: 'Plex', families: "'IBM Plex Sans'" },
-  { id: 'manrope', label: 'Manrope', families: "'Manrope'" }
+  { id: 'roboto', label: 'Roboto', families: "'Roboto'" },
+  { id: 'open-sans', label: 'Open Sans', families: "'Open Sans'" },
+  { id: 'lato', label: 'Lato', families: "'Lato'" },
+  { id: 'montserrat', label: 'Montserrat', families: "'Montserrat'" },
+  { id: 'poppins', label: 'Poppins', families: "'Poppins'" },
+  { id: 'nunito-sans', label: 'Nunito Sans', families: "'Nunito Sans'" },
+  { id: 'source-sans-3', label: 'Source Sans 3', families: "'Source Sans 3'" },
+  { id: 'plex', label: 'IBM Plex Sans', families: "'IBM Plex Sans'" },
+  { id: 'geist', label: 'Geist', families: "'Geist'", legacy: true },
+  { id: 'manrope', label: 'Manrope', families: "'Manrope'", legacy: true }
 ]
 
 export const DEFAULT_LATIN_FONT = 'inter'
@@ -35,10 +42,18 @@ export const CJK_FONT_PRESETS = [
     hrefs: []
   },
   { id: 'noto', label: '思源', families: "'Noto Sans SC'", hrefs: [] },
+  { id: 'noto-serif', label: '思源宋体', families: "'Noto Serif SC'", hrefs: [] },
+  { id: 'lxgw-wenkai', label: '霞鹜文楷', families: "'LXGW WenKai TC'", hrefs: [] },
+  { id: 'zcool-xiaowei', label: '站酷小薇', families: "'ZCOOL XiaoWei'", hrefs: [] },
+  { id: 'zcool-qingke', label: '站酷庆科黄油体', families: "'ZCOOL QingKe HuangYou'", hrefs: [] },
+  { id: 'ma-shan-zheng', label: '马善政', families: "'Ma Shan Zheng'", hrefs: [] },
+  { id: 'long-cang', label: '龙藏体', families: "'Long Cang'", hrefs: [] },
+  { id: 'liu-jian-mao-cao', label: '刘建毛草', families: "'Liu Jian Mao Cao'", hrefs: [] },
   {
     id: 'misans',
     label: 'MiSans',
     families: "'MiSans'",
+    legacy: true,
     hrefs: [
       'https://cdn.jsdelivr.net/npm/misans-webfont@4.3.1/misans/misans-regular/result.min.css',
       'https://cdn.jsdelivr.net/npm/misans-webfont@4.3.1/misans/misans-medium/result.min.css'
@@ -48,6 +63,7 @@ export const CJK_FONT_PRESETS = [
     id: 'harmony',
     label: '鸿蒙',
     families: "'HarmonyOS Sans SC'",
+    legacy: true,
     hrefs: [
       'https://cdn.jsdelivr.net/npm/harmonyos-sans-sc-webfont-splitted@1.1.0/dist/Regular.css',
       'https://cdn.jsdelivr.net/npm/harmonyos-sans-sc-webfont-splitted@1.1.0/dist/Medium.css'

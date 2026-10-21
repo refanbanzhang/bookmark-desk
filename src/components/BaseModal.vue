@@ -20,7 +20,7 @@ const emit = defineEmits(['close'])
 </script>
 
 <template>
-  <div class="overlay" @click.self="emit('close')">
+  <div class="overlay" @click.self="emit('close')" @keydown.esc.stop="emit('close')">
     <div
       class="modal"
       :class="{ 'modal--wide': wide }"
