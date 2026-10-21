@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { ExternalLink, GripVertical, LockKeyhole } from 'lucide-vue-next'
 import { hasChildren } from '../utils/bookmarkTree'
 import { getFaviconUrl } from '../utils/favicon'
@@ -43,10 +43,20 @@ watch(
 )
 
 const showFavicon = computed(() => Boolean(favicon.value) && !faviconFailed.value)
+const hostEl = ref(null)
 const isSelectedDropTarget = computed(
   () => isFolder.value && String(activeDropFolderId.value || '') === String(props.node.id)
 )
 const isLocked = computed(() => isFolder.value && isProtected(props.node) && !isUnlocked(props.node))
+
+onMounted(() => {
+  if (!import.meta.env.DEV || !hostEl.value) return
+  console.debug('[bookmark host font]', {
+    host: host.value,
+    hostFont: getComputedStyle(hostEl.value).fontFamily,
+    rowFont: getComputedStyle(hostEl.value.closest('.row')).fontFamily
+  })
+})
 
 const onClick = (event) => {
   if (isFolder.value) {
@@ -130,7 +140,7 @@ const onDragLeave = (event) => {
           @click.stop
           >{{ node.title || '未命名书签' }}</a
         >
-        <span class="row__host">{{ host }}</span>
+        <span ref="hostEl" class="row__host">{{ host }}</span>
       </template>
       <span v-else class="row__title">{{ node.title || '未命名目录' }}</span>
     </div>
