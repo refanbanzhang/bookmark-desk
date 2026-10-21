@@ -260,28 +260,20 @@
   border-radius: var(--r-sm);
 }
 
-.skeleton--head-icon {
-  width: 16px;
-  height: 16px;
+.skeleton--tile-mark {
+  width: 36px;
+  height: 36px;
   flex: none;
-}
-
-.skeleton--head-title {
-  width: 40%;
+  border-radius: var(--r-sm);
 }
 
 .skeleton--thin {
   height: 9px;
 }
 
-.module--skeleton {
-  height: 100%;
-  overflow: hidden;
-}
-
-.skeleton__stack {
+.skeleton__tile-stack {
   flex: 1 1 auto;
-  min-width: 0;
+  width: 100%;
   display: grid;
   gap: 5px;
   justify-items: start;

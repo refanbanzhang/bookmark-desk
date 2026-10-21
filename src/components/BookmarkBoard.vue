@@ -20,7 +20,8 @@ const props = defineProps({
 const skeletonRows = [
   { title: '62%', host: '40%' },
   { title: '48%', host: '32%' },
-  { title: '70%', host: '46%' }
+  { title: '70%', host: '46%' },
+  { title: '56%', host: '38%' }
 ]
 
 const skeletonBoard = ref(null)
@@ -47,28 +48,15 @@ watch(
 
 <template>
   <div v-if="loading" ref="skeletonBoard" class="board" aria-hidden="true">
-    <ul class="group depth-0">
-      <li v-for="card in 3" :key="card" class="bookmark-item is-folder is-root-folder">
-        <section class="module module--skeleton">
-          <div class="module__head">
-            <span class="skeleton skeleton--head-icon"></span>
-            <span class="skeleton skeleton--head-title"></span>
-          </div>
-          <div class="module__rule" aria-hidden="true"></div>
-          <div class="module__body">
-            <ul class="group">
-              <li v-for="row in skeletonRows" :key="row.title" class="bookmark-item is-tile">
-                <div class="row">
-                  <span class="skeleton skeleton--mark"></span>
-                  <span class="skeleton__stack">
-                    <span class="skeleton" :style="{ width: row.title }"></span>
-                    <span class="skeleton skeleton--thin" :style="{ width: row.host }"></span>
-                  </span>
-                </div>
-              </li>
-            </ul>
-          </div>
-        </section>
+    <ul class="group depth-0 is-tile-grid">
+      <li v-for="row in skeletonRows" :key="row.title" class="bookmark-item is-tile">
+        <div class="row">
+          <span class="skeleton skeleton--tile-mark"></span>
+          <span class="skeleton__tile-stack">
+            <span class="skeleton" :style="{ width: row.title }"></span>
+            <span class="skeleton skeleton--thin" :style="{ width: row.host }"></span>
+          </span>
+        </div>
       </li>
     </ul>
   </div>
