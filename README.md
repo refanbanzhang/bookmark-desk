@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="public/icons/bookmark-128.png" width="88" height="88" alt="Bookmark Desk logo" />
+</p>
+
 # Bookmark Desk
 
 基于 Vue 3 + Vite，覆盖 Chrome 新标签页并按目录展示书签的轻量扩展。
@@ -34,7 +38,7 @@ npm test          # node --test，覆盖书签树、拖拽索引、背景设置�
 npm run build     # 产物在 dist/
 npm run release   # = build + 打包成 release/bookmark-desk-<version>.zip，供商店上传
 npm run zip       # 只打包现有 dist/，不重新构建
-npm run icons     # 由 public/icons/icon.svg 重新生成 48/128 PNG（需要 rsvg-convert）
+npm run icons     # 由 public/icons/icon.svg 重新生成 16/32/48/128 PNG（需要 rsvg-convert）
 ```
 构建输出目录 `dist/` 可直接作为 Chrome 扩展的 unpacked folder 加载（需确保浏览器版本支持 Manifest V3）。
 `release/` 下的 zip 是 Chrome 应用商店的上传包：`manifest.json` 位于压缩包根目录、不含外层文件夹。
@@ -47,7 +51,7 @@ npm run icons     # 由 public/icons/icon.svg 重新生成 48/128 PNG（需要 r
 ## Chrome 扩展配置
 - `public/manifest.json` 里声明了 `chrome_url_overrides.newtab`，指向 `index.html`。
 - 授权 `bookmarks` 权限以访问用户书签，`favicon` 权限用于读取 Chrome 已缓存的网站图标（不会发起额外网络请求）。
-- 扩展图标源文件是 `public/icons/icon.svg`（深色圆角方块 + 奶白线稿书本 + 品牌绿书签带），`npm run icons` 生成 48/128 PNG，同一份 SVG 也作为页面 favicon。构建时 `public/` 原样拷贝。
+- 扩展图标源文件是 `public/icons/icon.svg`（品牌绿书签带 + 奶白 2×2 桌面格子，图形铺满画布、无底板），`npm run icons` 生成 16/32/48/128 PNG，同一份 SVG 也作为页面 favicon。构建时 `public/` 原样拷贝。
 - 版本号同时写在 `public/manifest.json` 与 `package.json`，改动界面行为后记得一起提升。
 
 ## 目录结构

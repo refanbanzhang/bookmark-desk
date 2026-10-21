@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "zip": "node scripts/package.mjs",
     "release": "npm run build && npm run zip",
-    "icons": "rsvg-convert -w 128 -h 128 -o public/icons/bookmark-128.png public/icons/icon.svg && rsvg-convert -w 48 -h 48 -o public/icons/bookmark-48.png public/icons/icon.svg",
+    "icons": "for s in 16 32 48 128; do rsvg-convert -w $s -h $s -o public/icons/bookmark-$s.png public/icons/icon.svg; done",
     "test": "node --test"
   },
   "dependencies": {

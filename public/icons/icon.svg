@@ -1,5 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
-  <rect width="128" height="128" rx="34" fill="#0f0d0c" />
-  <rect x="34" y="36" width="60" height="64" rx="8" fill="none" stroke="#f2f4f2" stroke-width="8" />
-  <path d="M70 33a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v49L78 70 70 82Z" fill="#80c776" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Bookmark Desk">
+  <!-- 主体：铺满画布的书签带，底部 V 形剪口 -->
+  <path d="M18 118V26a16 16 0 0 1 16-16h60a16 16 0 0 1 16 16v92l-46-28-46 28Z" fill="#6fb469" />
+
+  <!-- 符号：2×2 桌面格子 -->
+  <rect x="41.5" y="38" width="19" height="19" rx="5.5" fill="#f6f9f5" />
+  <rect x="67.5" y="38" width="19" height="19" rx="5.5" fill="#f6f9f5" />
+  <rect x="41.5" y="64" width="19" height="19" rx="5.5" fill="#f6f9f5" />
+  <rect x="67.5" y="64" width="19" height="19" rx="5.5" fill="#f6f9f5" />
 </svg>
