@@ -96,20 +96,23 @@ Summary: Turn Chrome's new tab into a tidy grid of your bookmarks, organized by 
 
 ## 五、截图（1-5 张，严格 1280x800 或 640x400）
 
-已生成三张 `1280x800`，按这个顺序传，第一张是列表主图：
+已生成四张 `1280x800`，按这个顺序传，第一张是列表主图：
 
-1. `docs/store/screenshots/01-board-1280x800.png` — 「常用工作台」目录的内容网格：16 张同宽同高卡片、真实站点图标、顶部目录 Tab
-2. `docs/store/screenshots/02-folder-1280x800.png` — 「开发」目录：两张目录卡（内含子项行）+ 散落书签卡混排，展示一格一卡与子目录
-3. `docs/store/screenshots/03-settings-1280x800.png` — 显示设置对话框：卡片尺寸、字体、背景图与透明度、磨砂强度
+1. `docs/store/screenshots/01-board-1280x800.png` — 主图：「常用工作台」铺成 18 格（两张目录卡 + 16 张书签卡），星空雪山背景透在卡片后面
+2. `docs/store/screenshots/02-folders-1280x800.png` — 「开发」目录：三张目录卡（内含子项行）+ 九张散落书签卡混排，展示一格一卡与子目录
+3. `docs/store/screenshots/03-settings-1280x800.png` — 显示设置：卡片尺寸、西文/中文字体、启用背景图与「上传图片或视频」、卡片不透明度
+4. `docs/store/screenshots/04-dark-1280x800.png` — 夜间主题 + 同一张背景图，卡片不透明度 82% 时背景仍透得出来
 
 想上精选再加两张促销图：小图 440x280、大图 1400x560。
 
-> 这三张是在无头 Chrome 里对 `dist/` 构建产物渲染出来的：注入 shim 让页面走
-> `chrome.bookmarks.getTree` / `chrome.runtime.getURL` 的真实数据流，书签内容是一组构造的
-> 示例站点，图标内联为各站点自带 `/favicon.ico` 的 data URI（即 Chrome 本地缓存里的同一张图）。
-> 不包含任何个人书签。界面改动后要重出图，注意两点：`--load-extension` 在 Chrome 137+ 已失效，
-> 只能靠 CDP 注入 shim 模拟扩展环境；截图前先跑 `npm run build` 并重启 `vite preview`，
-> 否则截到的是旧产物。
+> 出图脚本：`npm run build && npm run shots`（`scripts/store-screenshots.mjs`）。
+> 四张图都是在无头 Chrome 里对 `dist/` 构建产物渲染出来的：通过 CDP 在页面脚本之前注入 shim，
+> 让页面走 `chrome.bookmarks.getTree` / `chrome.runtime.getURL` 的真实数据流；书签内容是一组
+> 构造的示例站点，图标取各站点 favicon 内联为 data URI（等价于 Chrome 本地缓存里的同一张图），
+> 不含任何个人书签。背景图是 `docs/store/wallpapers/night-mountain.jpg`，以 data URL 写进
+> localStorage，等价于用户自己上传一张本地图后保存。
+> 注意两点：`--load-extension` 在 Chrome 137+ 已失效，只能靠 CDP 注入 shim；改界面后先跑
+> `npm run build` 再出图，否则截到的是旧产物。
 
 
 ## 六、提交

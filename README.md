@@ -38,6 +38,7 @@ npm test          # node --test，覆盖书签树、拖拽索引、背景设置�
 npm run build     # 产物在 dist/
 npm run release   # = build + 打包成 release/bookmark-desk-<version>.zip，供商店上传
 npm run zip       # 只打包现有 dist/，不重新构建
+npm run shots     # 重新生成商店截图到 docs/store/screenshots/（先 build）
 npm run icons     # 由 public/icons/icon.svg 重新生成 16/32/48/128 PNG（需要 rsvg-convert）
 ```
 构建输出目录 `dist/` 可直接作为 Chrome 扩展的 unpacked folder 加载（需确保浏览器版本支持 Manifest V3）。

@@ -10,6 +10,7 @@
     "zip": "node scripts/package.mjs",
     "release": "npm run build && npm run zip",
     "icons": "for s in 16 32 48 128; do rsvg-convert -w $s -h $s -o public/icons/bookmark-$s.png public/icons/icon.svg; done",
+    "shots": "node scripts/store-screenshots.mjs",
     "test": "node --test"
   },
   "dependencies": {
