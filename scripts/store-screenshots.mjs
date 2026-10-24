@@ -399,8 +399,10 @@ const main = async () => {
 
   const cleanup = async () => {
     try { chrome.kill('SIGKILL') } catch {}
+    await new Promise((resolve) => setTimeout(resolve, 250))
+    server.closeAllConnections?.()
     server.close()
-    await rm(profileDir, { recursive: true, force: true })
+    await rm(profileDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
   }
 
   try {
