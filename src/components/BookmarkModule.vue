@@ -1,10 +1,10 @@
 <script setup>
 import { computed } from 'vue'
-import { Folder, GripVertical, LockKeyhole, UnlockKeyhole } from 'lucide-vue-next'
+import { Folder, LockKeyhole, UnlockKeyhole } from 'lucide-vue-next'
 import { isBookmarkDragActive, useBookmarkDrag } from '../composables/useBookmarkDrag'
 import { useContextMenu } from '../composables/useContextMenu'
 import { useFolderAccess } from '../composables/useFolderAccess'
-import BookmarkTree from './BookmarkTree.vue'
+import { isFolderCenterDropTarget } from '../utils/folderDropZone'
 
 const props = defineProps({
   node: {
@@ -16,6 +16,8 @@ const props = defineProps({
     default: 1
   }
 })
+
+const emit = defineEmits(['open-folder'])
 
 const { activeDropFolderId, handleFolderDragTargetChange } = useBookmarkDrag()
 const { openContextMenu } = useContextMenu()
@@ -37,6 +39,17 @@ const onDragOver = (event) => {
   if (!isBookmarkDragActive()) {
     return
   }
+  if (
+    !isFolderCenterDropTarget({
+      element: event.currentTarget,
+      clientX: event.clientX,
+      clientY: event.clientY,
+      isCurrentTarget: isDropTarget.value
+    })
+  ) {
+    handleFolderDragTargetChange(null)
+    return
+  }
   event.preventDefault()
   if (event.dataTransfer) {
     event.dataTransfer.dropEffect = 'move'
@@ -54,10 +67,25 @@ const onDragLeave = (event) => {
 const unlock = () => {
   requestAccess(props.node)
 }
+
+const openFolder = () => {
+  if (!isLocked.value) {
+    emit('open-folder', props.node)
+  }
+}
 </script>
 
 <template>
-  <section class="module" :class="{ 'module--drop': isDropTarget }">
+  <section
+    class="module module--folder-card"
+    :class="{ 'module--drop': isDropTarget }"
+    role="button"
+    tabindex="0"
+    :aria-label="`打开目录 ${title}`"
+    @click="openFolder"
+    @keydown.enter="openFolder"
+    @keydown.space.prevent="openFolder"
+  >
     <div
       class="module__head drag-handle"
       :data-folder-drop-id="folderId"
@@ -65,9 +93,10 @@ const unlock = () => {
       @dragover="onDragOver"
       @dragleave="onDragLeave"
     >
-      <GripVertical class="module__grip" :size="14" />
-      <LockKeyhole v-if="isLocked" class="module__icon" :size="16" />
-      <Folder v-else class="module__icon" :size="16" />
+      <span class="module__folder-icon" aria-hidden="true">
+        <LockKeyhole v-if="isLocked" :size="18" />
+        <Folder v-else class="module__folder-glyph" :size="22" />
+      </span>
       <h4 class="module__title">{{ title }}</h4>
     </div>
 
@@ -76,13 +105,13 @@ const unlock = () => {
     <div v-if="isLocked" class="module__locked">
       <LockKeyhole :size="18" />
       <span>该目录已加密</span>
-      <button class="btn btn--ghost" type="button" @click="unlock">
+      <button class="btn btn--ghost" type="button" @click.stop="unlock">
         <UnlockKeyhole :size="14" />
         输入密码
       </button>
     </div>
-    <div v-else class="module__body">
-      <BookmarkTree :nodes="children" :parent-id="node.id" :depth="depth" />
+    <div v-else class="module__folder-foot">
+      <span>{{ children.length }} 项</span>
     </div>
   </section>
 </template>

@@ -7,6 +7,7 @@ import { useBookmarkTree } from './useBookmarkTree'
  * 目录 Tab：由根目录派生，维护当前选中项与可见节点，并持久化选择。
  */
 const activeTab = ref('')
+const drilldownIds = ref([])
 
 export const useBookmarkTabs = () => {
   const { bookmarkTree } = useBookmarkTree()
@@ -37,21 +38,34 @@ export const useBookmarkTabs = () => {
     if (targetTabId === ROOT_BOOKMARKS_TAB_ID) {
       return null
     }
-    const target = bookmarkTree.value.find((node) => String(node.id) === targetTabId)
+    const target = currentFolder.value
     return target && hasChildren(target) ? String(target.id) : null
+  })
+
+  const rootFolder = computed(() => {
+    const targetTabId = activeTab.value || tabOptions.value[0]?.id
+    return bookmarkTree.value.find((node) => String(node.id) === targetTabId) || null
+  })
+
+  const currentFolder = computed(() => {
+    let folder = rootFolder.value
+    for (const id of drilldownIds.value) {
+      folder = folder?.children?.find((node) => String(node.id) === String(id)) || null
+      if (!folder) {
+        break
+      }
+    }
+    return folder
   })
 
   const visibleNodes = computed(() => {
     if (!tabOptions.value.length) {
       return bookmarkTree.value
     }
-    const target = visibleParentId.value
-      ? bookmarkTree.value.find((node) => String(node.id) === visibleParentId.value)
-      : null
-    if (!target || !hasChildren(target)) {
+    if (!currentFolder.value || !hasChildren(currentFolder.value)) {
       return bookmarkTree.value
     }
-    return target.children
+    return currentFolder.value.children
   })
 
   const switchTab = (tabId) => {
@@ -59,16 +73,37 @@ export const useBookmarkTabs = () => {
       return
     }
     activeTab.value = tabId
+    drilldownIds.value = []
     localStorage.setItem(ACTIVE_TAB_KEY, tabId)
   }
 
+  const openFolder = (folderId) => {
+    if (!folderId || !visibleNodes.value.some((node) => String(node.id) === String(folderId))) {
+      return false
+    }
+    drilldownIds.value = [...drilldownIds.value, String(folderId)]
+    return true
+  }
+
+  const goBack = () => {
+    if (!drilldownIds.value.length) {
+      return false
+    }
+    drilldownIds.value = drilldownIds.value.slice(0, -1)
+    return true
+  }
+
+  const isDrilledDown = computed(() => drilldownIds.value.length > 0)
+
   const initActiveTab = () => {
     activeTab.value = localStorage.getItem(ACTIVE_TAB_KEY) || ''
+    drilldownIds.value = []
   }
 
   watch(tabOptions, (tabs) => {
     if (!tabs.length) {
       activeTab.value = ''
+      drilldownIds.value = []
       localStorage.removeItem(ACTIVE_TAB_KEY)
       return
     }
@@ -79,6 +114,20 @@ export const useBookmarkTabs = () => {
       activeTab.value = tabs.some((tab) => tab.id === savedTabId) ? savedTabId : tabs[0].id
       localStorage.setItem(ACTIVE_TAB_KEY, activeTab.value)
     }
+
+    const validIds = new Set()
+    let folder = bookmarkTree.value.find((node) => String(node.id) === activeTab.value)
+    for (const id of drilldownIds.value) {
+      const child = folder?.children?.find((node) => String(node.id) === String(id))
+      if (!child) {
+        break
+      }
+      validIds.add(String(id))
+      folder = child
+    }
+    if (validIds.size !== drilldownIds.value.length) {
+      drilldownIds.value = drilldownIds.value.filter((id) => validIds.has(String(id)))
+    }
   })
 
   return {
@@ -86,7 +135,11 @@ export const useBookmarkTabs = () => {
     tabOptions,
     visibleNodes,
     visibleParentId,
+    currentFolder,
+    isDrilledDown,
     switchTab,
+    openFolder,
+    goBack,
     initActiveTab
   }
 }

@@ -1,3 +1,5 @@
+import { isFolderCenterDropTarget } from './folderDropZone'
+
 /**
  * 拖拽跟随预览：自绘一份跟着光标走的卡片。
  *
@@ -17,9 +19,9 @@ const COMPACT_CLASS = 'drag-preview--compact'
 /** 顶层格子里的卡片 / 目录卡内部的行，靠这个类在预览里补上各自那套尺寸 */
 const CELL_CLASS = 'drag-preview--cell'
 const ROW_CLASS = 'drag-preview--row'
+const SUBFOLDER_GRID_CLASS = 'is-subfolder-grid'
 /** SortableJS 在拖拽期间加在源元素上的类，别跟着抄进预览 */
 const SOURCE_STATE_CLASSES = ['row--ghost', 'row--chosen', 'row--drag']
-const FOLDER_ZONE_SELECTOR = '[data-folder-drop-id], .bookmark-item.is-folder, .tabbar'
 const TRANSPARENT_PIXEL =
   'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
 
@@ -59,12 +61,47 @@ let settling = false
 let settleTimer = 0
 /** 刚刚闪过的目录：动画没走到头也要把类摘回来 */
 let flashZone = null
+let compactTargetId = ''
 
-const isOverFolderZone = (element) => Boolean(element?.closest?.(FOLDER_ZONE_SELECTOR))
+const isOverFolderZone = (element, clientX, clientY) => {
+  const tab = element?.closest?.('.tab[data-folder-tab-id]')
+  if (tab) {
+    compactTargetId = String(tab.dataset.folderTabId || '')
+    return true
+  }
+
+  const folderTarget = element?.closest?.('[data-folder-drop-id]')
+  const folderId = String(folderTarget?.dataset.folderDropId || '')
+  if (!folderTarget || !folderId) {
+    compactTargetId = ''
+    return false
+  }
+  if (sourceNodeEl?.contains?.(folderTarget)) {
+    compactTargetId = ''
+    return false
+  }
+
+  const isCenter = isFolderCenterDropTarget({
+    element: folderTarget,
+    clientX,
+    clientY,
+    isCurrentTarget: compactTargetId === folderId
+  })
+  compactTargetId = isCenter ? folderId : ''
+  return isCenter
+}
 
 /** 顶层格子的卡片拿得到 .group.depth-0 的规矩，格子外面的行拿的是卡内紧凑行那套 */
 const getContextClass = (sourceEl) =>
   sourceEl.parentElement?.classList?.contains('depth-0') ? CELL_CLASS : ROW_CLASS
+
+const getContextClasses = (sourceEl) => {
+  const classes = [getContextClass(sourceEl)]
+  if (sourceEl.parentElement?.classList?.contains(SUBFOLDER_GRID_CLASS)) {
+    classes.push(SUBFOLDER_GRID_CLASS)
+  }
+  return classes
+}
 
 /** 外层：光标在哪，预览就在哪，每帧即时写，不带过渡 */
 const renderPosition = () => {
@@ -103,7 +140,7 @@ const getFolderSurface = (element) => {
  * 判据和 useBookmarkDrag 一致——目录行整行、目录卡标题栏、Tab 各自声明自己是谁，
  * 都没压着目录就看指针落在哪个列表里（列表的 data-group-parent-id 就是它的目录）。
  */
-const resolveDropFolder = (target) => {
+const resolveDropFolder = (target, clientX = pointerX, clientY = pointerY) => {
   if (!target?.closest) {
     return null
   }
@@ -122,6 +159,16 @@ const resolveDropFolder = (target) => {
   const zone = target.closest('[data-folder-drop-id]')
   /* 拖整张目录卡时，别人卡片的标题栏留给换位排序，不算移入 */
   if (sourceIsCard && zone?.classList?.contains('module__head')) {
+    return null
+  }
+  if (
+    !isFolderCenterDropTarget({
+      element: zone,
+      clientX,
+      clientY,
+      isCurrentTarget: compactTargetId === String(zone?.dataset.folderDropId || '')
+    })
+  ) {
     return null
   }
 
@@ -169,7 +216,17 @@ const handleDocumentDragOver = (event) => {
     pointerX = x
     pointerY = y
   }
-  compact = isOverFolderZone(event.target)
+  /* 只有进入目录中心区域才缩小，和实际目录接收判定保持一致。 */
+  const nextCompact = isOverFolderZone(event.target, pointerX, pointerY)
+  if (import.meta.env.DEV && nextCompact !== compact) {
+    console.debug('[bookmark drag] preview compact', {
+      compact: nextCompact,
+      targetId: compactTargetId || null,
+      clientX: pointerX,
+      clientY: pointerY
+    })
+  }
+  compact = nextCompact
   cardEl.classList.toggle(COMPACT_CLASS, compact)
   renderPosition()
   renderCard()
@@ -180,7 +237,7 @@ const handleDocumentDrop = (event) => {
   if (!positionEl || settling) {
     return
   }
-  const zone = resolveDropFolder(event.target)
+  const zone = resolveDropFolder(event.target, Number(event.clientX), Number(event.clientY))
   if (!zone || !settleIntoFolder(zone)) {
     destroyDragPreview()
     return
@@ -221,6 +278,7 @@ const destroyDragPreview = () => {
   sourceNodeEl = null
   sourceParentId = ''
   sourceIsCard = false
+  compactTargetId = ''
   sourceWidth = 0
   sourceHeight = 0
 }
@@ -290,7 +348,7 @@ export const startDragPreview = (sourceEl, event) => {
   clone.removeAttribute('draggable')
   clone.removeAttribute('id')
   SOURCE_STATE_CLASSES.forEach((name) => clone.classList.remove(name))
-  clone.classList.add(getContextClass(sourceEl))
+  getContextClasses(sourceEl).forEach((name) => clone.classList.add(name))
   clone.style.width = `${Math.round(rect.width)}px`
   clone.style.height = `${Math.round(rect.height)}px`
   copyScrollPositions(sourceEl, clone)

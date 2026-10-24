@@ -1,5 +1,5 @@
 <script setup>
-import { nextTick, ref, watch } from 'vue'
+import { nextTick, onMounted, ref, watch } from 'vue'
 import BookmarkTree from './BookmarkTree.vue'
 
 const props = defineProps({
@@ -17,6 +17,8 @@ const props = defineProps({
   }
 })
 
+const emit = defineEmits(['open-folder'])
+
 const skeletonRows = [
   { title: '62%', host: '40%' },
   { title: '48%', host: '32%' },
@@ -25,6 +27,34 @@ const skeletonRows = [
 ]
 
 const skeletonBoard = ref(null)
+
+const logGridLayout = async () => {
+  if (!import.meta.env.DEV || props.loading || !props.nodes.length) {
+    return
+  }
+
+  await nextTick()
+  const grid = document.querySelector('.board > .group.depth-0')
+  if (!grid) {
+    return
+  }
+
+  console.debug('[bookmark grid layout]', {
+    alignItems: getComputedStyle(grid).alignItems,
+    items: [...grid.children].map((item) => {
+      const module = item.querySelector('.module')
+      return {
+        type: item.classList.contains('is-root-folder') ? 'folder' : 'bookmark',
+        itemHeight: Math.round(item.getBoundingClientRect().height),
+        moduleHeight: module ? Math.round(module.getBoundingClientRect().height) : null,
+        minHeight: getComputedStyle(item).minHeight
+      }
+    })
+  })
+}
+
+watch(() => props.nodes, logGridLayout, { flush: 'post' })
+onMounted(logGridLayout)
 
 watch(
   () => props.loading,
@@ -62,7 +92,12 @@ watch(
   </div>
 
   <div v-else-if="nodes.length" class="board">
-    <BookmarkTree :nodes="nodes" :parent-id="parentId" :depth="0" />
+    <BookmarkTree
+      :nodes="nodes"
+      :parent-id="parentId"
+      :depth="0"
+      @open-folder="emit('open-folder', $event)"
+    />
   </div>
 
   <div v-else class="empty">

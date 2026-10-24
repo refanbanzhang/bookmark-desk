@@ -20,11 +20,25 @@ export const fallbackTree = [
     children: [
       { id: 'dev-github', title: 'GitHub', url: 'https://github.com/' },
       { id: 'dev-stack-overflow', title: 'Stack Overflow', url: 'https://stackoverflow.com/' },
+      {
+        id: 'dev-frontend',
+        title: '前端框架',
+        children: [
+          { id: 'dev-vue', title: 'Vue', url: 'https://vuejs.org/' },
+          { id: 'dev-react', title: 'React', url: 'https://react.dev/' },
+          { id: 'dev-vite', title: 'Vite', url: 'https://vitejs.dev/' }
+        ]
+      },
+      {
+        id: 'dev-backend',
+        title: '后端服务',
+        children: [
+          { id: 'dev-node', title: 'Node.js', url: 'https://nodejs.org/' },
+          { id: 'dev-docker', title: 'Docker', url: 'https://www.docker.com/' }
+        ]
+      },
       { id: 'dev-mdn', title: 'MDN Web Docs', url: 'https://developer.mozilla.org/' },
-      { id: 'dev-vue', title: 'Vue', url: 'https://vuejs.org/' },
-      { id: 'dev-vite', title: 'Vite', url: 'https://vitejs.dev/' },
       { id: 'dev-typescript', title: 'TypeScript', url: 'https://www.typescriptlang.org/' },
-      { id: 'dev-docker', title: 'Docker', url: 'https://www.docker.com/' }
     ]
   },
   {

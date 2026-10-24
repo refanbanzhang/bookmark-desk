@@ -7,6 +7,7 @@ import { isBookmarkDragActive, useBookmarkDrag } from '../composables/useBookmar
 import { useContextMenu } from '../composables/useContextMenu'
 import { openBookmarkUrl } from '../composables/useChromeBookmarks'
 import { useFolderAccess } from '../composables/useFolderAccess'
+import { isFolderCenterDropTarget } from '../utils/folderDropZone'
 
 const props = defineProps({
   node: {
@@ -85,6 +86,17 @@ const onContextMenu = (event) => {
 
 const onDragOver = (event) => {
   if (!isFolder.value || !isBookmarkDragActive()) {
+    return
+  }
+  if (
+    !isFolderCenterDropTarget({
+      element: event.currentTarget,
+      clientX: event.clientX,
+      clientY: event.clientY,
+      isCurrentTarget: isSelectedDropTarget.value
+    })
+  ) {
+    handleFolderDragTargetChange(null)
     return
   }
   event.preventDefault()

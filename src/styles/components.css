@@ -151,6 +151,12 @@
 }
 
 /* ---------- 目录 Tab ---------- */
+.tabbar,
+.folder-page-head {
+  height: 41px;
+  min-height: 41px;
+}
+
 .tabbar {
   display: flex;
   align-items: center;
@@ -215,6 +221,81 @@
 .tab--drag {
   background: var(--bg-elev);
   border-color: var(--border-2);
+}
+
+/* ---------- 下钻目录页头 ---------- */
+.folder-page-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-7);
+  margin-top: var(--sp-6);
+  border-bottom: 1px dashed var(--dashed);
+}
+
+.folder-page-head__back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-left: auto;
+  flex: none;
+  height: 28px;
+  padding: 0 9px;
+  font-size: var(--fs-body);
+  color: var(--text-2);
+  border: 1px solid transparent;
+  border-radius: var(--r-pill);
+  transition: color var(--t-fast), background-color var(--t-fast), border-color var(--t-fast);
+}
+
+.folder-page-head__back:hover {
+  color: var(--text);
+  background: var(--bg-hover);
+  border-color: var(--border);
+}
+
+.folder-page-head__title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.folder-page-head__title h2 {
+  margin: 0;
+  font-size: var(--fs-body);
+  font-weight: var(--fw-medium);
+  line-height: 1.4;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folder-page-head__title h2.folder-page-head__name {
+  color: var(--bg-shell);
+  max-width: 100%;
+}
+
+.folder-page-head__title > div {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  line-height: 1;
+  min-width: 0;
+}
+
+.has-backdrop .tabbar,
+.has-backdrop .folder-page-head {
+  height: 49px;
+  min-height: 49px;
+}
+
+.has-backdrop .folder-page-head {
+  padding: 10px var(--sp-3);
+  background: color-mix(in srgb, var(--bg-card) calc(var(--card-alpha) * 100%), transparent);
+  border: var(--hairline);
+  border-radius: var(--r-lg);
 }
 
 /* ---------- 告警 / 空态 / 骨架 ---------- */
@@ -293,17 +374,26 @@
   margin-top: var(--sp-6);
 }
 
-/* 顶层一格一卡：目录卡与书签卡同宽同高，列数由「卡片尺寸」决定 */
+/* 顶层一格一卡：不同类型卡片各自决定高度，列数由「卡片尺寸」决定 */
 .group.depth-0 {
   display: grid;
   grid-template-columns: repeat(var(--cell-cols), minmax(0, 1fr));
   gap: var(--sp-5);
-  align-items: stretch;
+  align-items: start;
 }
 
 .group.depth-0 > .bookmark-item {
   min-width: 0;
-  height: var(--cell-h);
+  height: auto;
+  align-self: start;
+}
+
+.group.depth-0 > .bookmark-item.is-root-folder {
+  min-height: var(--cell-h-tiles);
+}
+
+.group.depth-0 > .bookmark-item.is-tile {
+  min-height: var(--cell-h-tiles);
 }
 
 /* 纯书签标签页：一格一卡不变，只是整屏收窄到磁贴需要的高度 */
@@ -311,9 +401,14 @@
   --cell-h: var(--cell-h-tiles);
 }
 
+.group.depth-0.is-tile-grid > .bookmark-item {
+  min-height: var(--cell-h-tiles);
+}
+
 /* 目录卡：卡头固定，正文在格内滚动 */
 .group.depth-0 > .bookmark-item.is-root-folder > .module {
   height: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }
@@ -322,6 +417,107 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+}
+
+/* 二级目录：用更紧凑的双层信息卡，避免继承一级目录的大卡片比例 */
+.group.depth-0.is-subfolder-grid {
+  gap: var(--sp-4);
+}
+
+.group.depth-0.is-subfolder-grid > .bookmark-item.is-root-folder {
+  min-height: var(--cell-h-tiles);
+  height: auto;
+  align-self: stretch;
+}
+
+.group.depth-0.is-subfolder-grid > .bookmark-item.is-root-folder > .module,
+.drag-preview--cell.is-subfolder-grid.is-root-folder > .module {
+  background: color-mix(in srgb, var(--bg-card) calc(var(--card-alpha) * 100%), transparent);
+  border-color: var(--border);
+  border-radius: var(--r-lg);
+}
+
+.group.depth-0.is-subfolder-grid > .bookmark-item.is-root-folder > .module > .module__head,
+.drag-preview--cell.is-subfolder-grid.is-root-folder > .module > .module__head {
+  min-height: 0;
+  height: 100%;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  padding: 13px;
+}
+
+.module__folder-icon {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  color: var(--btn);
+  background: var(--accent-tint);
+  border-radius: var(--r-sm);
+}
+
+.module__folder-glyph {
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+
+.module--folder-card .module__folder-icon {
+  width: 36px;
+  height: 36px;
+}
+
+.group.depth-0.is-subfolder-grid
+  > .bookmark-item.is-root-folder
+  > .module
+  > .module__head
+  > .module__folder-icon {
+  width: 36px;
+  height: 36px;
+  background: var(--accent-tint);
+}
+
+.group.depth-0.is-subfolder-grid > .bookmark-item.is-root-folder > .module .module__title,
+.drag-preview--cell.is-subfolder-grid.is-root-folder > .module .module__title {
+  display: -webkit-box;
+  width: 100%;
+  font-size: var(--fs-module);
+  line-height: 1.4;
+  white-space: normal;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.group.depth-0.is-subfolder-grid
+  > .bookmark-item.is-root-folder
+  > .module
+  > .module__locked,
+.drag-preview--cell.is-subfolder-grid.is-root-folder > .module > .module__locked {
+  min-height: 0;
+  height: 48px;
+  padding: var(--sp-3) var(--sp-5);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: var(--sp-2);
+  font-size: var(--fs-meta);
+}
+
+.group.depth-0.is-subfolder-grid > .bookmark-item.is-root-folder > .module:hover,
+.drag-preview--cell.is-subfolder-grid.is-root-folder > .module:hover {
+  border-color: var(--accent);
+}
+
+.group.depth-0.is-subfolder-grid
+  > .bookmark-item.is-root-folder
+  > .module
+  > .module__folder-foot,
+.drag-preview--cell.is-subfolder-grid.is-root-folder > .module > .module__folder-foot {
+  display: none;
 }
 
 /* 散落书签：整格就是一张卡，内容顶对齐（标题一行/两行，图标都落在同一水平线上）；圆角与目录卡同档 */
@@ -395,6 +591,14 @@
 .group.depth-0 > .bookmark-item.is-root-folder.row--chosen > .module {
   border-color: var(--border-2);
   background: var(--bg-elev);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+
+.group.depth-0 > .bookmark-item.is-root-folder.row--drag,
+.group.depth-0 > .bookmark-item.is-root-folder.row--chosen {
+  overflow: hidden;
+  border-radius: var(--r-lg);
 }
 
 .module {
@@ -407,6 +611,49 @@
 
 .module:hover {
   border-color: var(--border-2);
+}
+
+.module--folder-card {
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-elev);
+  border-color: var(--border-2);
+}
+
+.module--folder-card:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--focus);
+}
+
+.module--folder-card > .module__head {
+  min-height: 72px;
+  padding: 13px;
+  gap: var(--sp-3);
+}
+
+.module--folder-card:hover {
+  border-color: var(--accent);
+  background: var(--bg-elev);
+}
+
+.module--folder-card > .module__rule {
+  display: none;
+}
+
+.module--folder-card .module__title {
+  font-size: 16px;
+  font-weight: var(--fw-medium);
+}
+
+.module__folder-foot {
+  display: flex;
+  align-items: center;
+  margin-top: auto;
+  min-height: 0;
+  padding: var(--sp-2) var(--sp-5) var(--sp-5);
+  font-size: var(--fs-meta);
+  color: var(--text-3);
 }
 
 .module--drop {
@@ -436,20 +683,6 @@
 
 .drag-handle * {
   cursor: inherit;
-}
-
-.module__grip {
-  position: absolute;
-  top: 50%;
-  left: 1px;
-  color: var(--text-3);
-  opacity: 0;
-  transform: translateY(-50%);
-  transition: opacity var(--t-fast);
-}
-
-.module:hover .module__grip {
-  opacity: 0.5;
 }
 
 .module__icon {

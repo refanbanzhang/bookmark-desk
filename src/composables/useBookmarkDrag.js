@@ -9,6 +9,7 @@ import {
 import { ROOT_BOOKMARKS_TAB_ID } from '../constants'
 import { getChromeNodeOps, hasChromeBookmarks } from './useChromeBookmarks'
 import { useBookmarkTree } from './useBookmarkTree'
+import { isFolderCenterDropTarget } from '../utils/folderDropZone'
 
 const DRAGGING_FLAG = 'bookmarkDragging'
 
@@ -180,6 +181,16 @@ export const useBookmarkDrag = () => {
     }
     const folderId = String(folderTarget?.dataset.folderDropId || '')
     if (!folderId || !folderItem) {
+      return null
+    }
+    if (
+      !isFolderCenterDropTarget({
+        element: folderTarget,
+        clientX: point.clientX,
+        clientY: point.clientY,
+        isCurrentTarget: activeDropFolderId.value === folderId
+      })
+    ) {
       return null
     }
 

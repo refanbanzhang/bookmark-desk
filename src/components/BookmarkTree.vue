@@ -4,6 +4,7 @@ import { VueDraggable } from 'vue-draggable-plus'
 import { hasChildren } from '../utils/bookmarkTree'
 import { useBookmarkDrag, isCardHeadTarget, isRootFolderCardElement } from '../composables/useBookmarkDrag'
 import { startDragPreview } from '../utils/dragPreview'
+import { isFolderCenterDropTarget } from '../utils/folderDropZone'
 import { useFolderAccess } from '../composables/useFolderAccess'
 import BookmarkRow from './BookmarkRow.vue'
 import BookmarkModule from './BookmarkModule.vue'
@@ -25,7 +26,10 @@ const props = defineProps({
   }
 })
 
+const emit = defineEmits(['open-folder'])
+
 const {
+  activeDropFolderId,
   dragSourceIsCard,
   canMoveNode,
   getGlobalDragCount,
@@ -44,6 +48,7 @@ const parentIdValue = computed(() =>
     ? ''
     : String(props.parentId)
 )
+const isSubfolderGrid = computed(() => Boolean(parentIdValue.value))
 
 const isFolder = (node) => hasChildren(node)
 const isRootFolder = (node) => props.depth === 0 && isFolder(node)
@@ -83,6 +88,17 @@ const getFolderTargetId = (originalEvent, draggedId) => {
     return null
   }
 
+  if (
+    !isFolderCenterDropTarget({
+      element: folderTarget,
+      clientX: point.clientX,
+      clientY: point.clientY,
+      isCurrentTarget: activeDropFolderId.value === folderId
+    })
+  ) {
+    return null
+  }
+
   return folderId
 }
 
@@ -113,6 +129,15 @@ const onDragStart = (event) => {
   if (!isLocalDragging.value) {
     isLocalDragging.value = true
     setGlobalDragCount(getGlobalDragCount() + 1)
+  }
+  if (import.meta.env.DEV) {
+    const item = event?.item
+    const module = item?.querySelector?.('.module--folder-card')
+    console.debug('[BookmarkTree] drag start', {
+      nodeId: item?.dataset?.nodeId || '',
+      itemClass: item?.className || '',
+      moduleRadius: module ? getComputedStyle(module).borderRadius : ''
+    })
   }
   handleBookmarkDragStart(
     String(event?.item?.dataset.nodeId || ''),
@@ -152,7 +177,7 @@ onUnmounted(() => {
     ref="groupRef"
     tag="ul"
     class="group"
-    :class="[depthClass, { 'is-tile-grid': isTileGrid }]"
+    :class="[depthClass, { 'is-tile-grid': isTileGrid, 'is-subfolder-grid': isSubfolderGrid }]"
     :model-value="nodes"
     :data-group-parent-id="parentIdValue"
     draggable="li.bookmark-item"
@@ -183,6 +208,7 @@ onUnmounted(() => {
         v-if="isRootFolder(node)"
         :node="node"
         :depth="depth + 1"
+        @open-folder="emit('open-folder', $event)"
       />
 
       <template v-else>
