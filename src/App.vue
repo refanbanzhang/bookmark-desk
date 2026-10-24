@@ -16,6 +16,7 @@ import { useBackgroundImage } from './composables/useBackgroundImage'
 import { useTheme } from './composables/useTheme'
 import { useContextMenu } from './composables/useContextMenu'
 import { useFolderAccess } from './composables/useFolderAccess'
+import { initSyncPrefs } from './composables/useSyncPrefs'
 
 const { loading, warning, loadBookmarks } = useBookmarkTree()
 const {
@@ -138,10 +139,20 @@ const logFolderBarLayout = async () => {
 
 watch(isDrilledDown, logFolderBarLayout)
 
+let stopSync = () => {}
+let leftPage = false
+
 onMounted(() => {
   initTheme()
   initActiveTab()
-  void initBackgroundSettings()
+  void initBackgroundSettings().then(async () => {
+    const stop = await initSyncPrefs()
+    if (leftPage) {
+      stop()
+      return
+    }
+    stopSync = stop
+  })
   void loadBookmarks()
 
   window.addEventListener('resize', handleViewportChange)
@@ -151,6 +162,8 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  leftPage = true
+  stopSync()
   window.removeEventListener('resize', handleViewportChange)
   window.removeEventListener('scroll', handleViewportChange, true)
   window.removeEventListener('keydown', handleGlobalKeydown)

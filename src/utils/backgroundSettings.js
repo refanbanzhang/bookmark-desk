@@ -416,6 +416,27 @@ export const peekBackgroundSettings = (storage = globalThis.localStorage) => {
 export const hasStoredLocalBackgroundImage = (storage = globalThis.localStorage) =>
   isStoredLocalImage(readStoredPayload(storage))
 
+/** 本地上传的图片或视频：字节在 IndexedDB，不能进同步 */
+export const isLocalBackgroundSource = (settings) => {
+  if (!settings || typeof settings !== 'object') {
+    return false
+  }
+  if (settings.mediaType === 'video' || isStoredLocalImage(settings) || isStoredLocalVideo(settings)) {
+    return true
+  }
+  const url = settings.imageUrl
+  if (isBlob(url)) {
+    return true
+  }
+  if (typeof url !== 'string' || !url) {
+    return false
+  }
+  return /^data:/i.test(url) || /^blob:/i.test(url)
+}
+
+export const hasStoredLocalBackgroundMedia = (storage = globalThis.localStorage) =>
+  isLocalBackgroundSource(readStoredPayload(storage))
+
 export const saveBackgroundSettings = async (
   settings,
   storage = globalThis.localStorage,

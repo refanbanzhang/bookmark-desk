@@ -1,7 +1,6 @@
 import { computed, ref } from 'vue'
 import {
   cardSizeStyle,
-  clearBackgroundSettings,
   createDefaultBackgroundSettings,
   fontFamilyStack,
   hasStoredLocalBackgroundImage,
@@ -11,6 +10,7 @@ import {
   saveBackgroundSettings
 } from '../utils/backgroundSettings'
 import { ensureWebfonts } from '../utils/webfonts'
+import { rememberPrefs, requestSyncPush } from './syncBridge'
 
 const backgroundSettings = ref(peekBackgroundSettings())
 const backgroundDraft = ref(createDefaultBackgroundSettings())
@@ -115,9 +115,12 @@ export const useBackgroundImage = () => {
     }
     pendingLocalImage.value = false
     ensureWebfonts([backgroundSettings.value.cjkFont])
+    rememberPrefs(backgroundSettings.value)
   }
 
-  const persistBackgroundSettings = async (nextSettings) => {
+  const persistBackgroundSettings = async (nextSettings, options = {}) => {
+    const syncDraft = options.syncDraft !== false
+    const publish = options.publish !== false
     const saved = await saveBackgroundSettings(nextSettings)
     const runtimeSettings = { ...saved }
     if (runtimeSettings.mediaType === 'video' && runtimeSettings.imageUrl instanceof Blob) {
@@ -132,11 +135,35 @@ export const useBackgroundImage = () => {
     }
     releaseDraftVideo()
     backgroundSettings.value = runtimeSettings
-    backgroundDraft.value = { ...runtimeSettings }
+    if (syncDraft) {
+      backgroundDraft.value = { ...runtimeSettings }
+    }
     backgroundError.value = ''
     pendingLocalImage.value = false
     ensureWebfonts([saved.cjkFont])
+    rememberPrefs(runtimeSettings)
+    if (publish) {
+      requestSyncPush()
+    }
     return saved
+  }
+
+  const applySyncedBackground = async (plan) => {
+    const next = {
+      ...backgroundSettings.value,
+      ...(plan.appearance || {})
+    }
+    if (plan.image?.mode === 'url') {
+      next.mediaType = 'image'
+      next.imageUrl = plan.image.imageUrl
+    } else if (plan.image?.mode === 'clear') {
+      next.mediaType = 'image'
+      next.imageUrl = ''
+    }
+    await persistBackgroundSettings(next, {
+      syncDraft: !backgroundSettingsOpen.value,
+      publish: false
+    })
   }
 
   const openBackgroundSettings = () => {
@@ -178,18 +205,16 @@ export const useBackgroundImage = () => {
 
   const clearBackgroundImage = async () => {
     releaseDraftVideo()
-    const cleared = await clearBackgroundSettings({
-      cardSize: backgroundDraft.value.cardSize,
-      latinFont: backgroundDraft.value.latinFont,
-      cjkFont: backgroundDraft.value.cjkFont
-    })
-    backgroundSettings.value = cleared
-    backgroundDraft.value = { ...cleared }
-    backgroundError.value = ''
-    pendingLocalImage.value = false
-    if (activeVideoObjectUrl) {
-      URL.revokeObjectURL(activeVideoObjectUrl)
-      activeVideoObjectUrl = ''
+    try {
+      /* 清掉图片，但把尺寸、字体、透明度、圆角写回本地，刷新后还在，同步出去的也是同一份 */
+      await persistBackgroundSettings({
+        ...backgroundDraft.value,
+        enabled: false,
+        mediaType: 'image',
+        imageUrl: ''
+      })
+    } catch (error) {
+      backgroundError.value = error instanceof Error ? error.message : '背景设置保存失败。'
     }
   }
 
@@ -252,6 +277,7 @@ export const useBackgroundImage = () => {
     backdropStyle,
     shellStyle,
     initBackgroundSettings,
+    applySyncedBackground,
     openBackgroundSettings,
     closeBackgroundSettings,
     saveBackgroundSettingsForm,

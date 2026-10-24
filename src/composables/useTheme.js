@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import { THEME_KEY } from '../constants'
+import { requestSyncPush } from './syncBridge'
 
 const theme = ref('light')
 
@@ -24,11 +25,18 @@ export const useTheme = () => {
     applyTheme(preferDark ? 'dark' : 'light')
   }
 
-  const toggleTheme = () => {
-    const next = theme.value === 'dark' ? 'light' : 'dark'
-    applyTheme(next)
-    localStorage.setItem(THEME_KEY, next)
+  const setTheme = (value) => {
+    if (value !== 'dark' && value !== 'light') {
+      return
+    }
+    applyTheme(value)
+    localStorage.setItem(THEME_KEY, value)
   }
 
-  return { theme, initTheme, toggleTheme }
+  const toggleTheme = () => {
+    setTheme(theme.value === 'dark' ? 'light' : 'dark')
+    requestSyncPush()
+  }
+
+  return { theme, initTheme, toggleTheme, setTheme }
 }

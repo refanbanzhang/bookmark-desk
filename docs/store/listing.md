@@ -88,6 +88,7 @@ Summary: Turn Chrome's new tab into a tidy grid of your bookmarks, organized by 
 |---|---|
 | `bookmarks` | 读取用户的书签树，用于在新标签页渲染目录卡片与书签卡片；仅在用户主动重命名、删除或拖动整理时写回书签数据。不读取、不上传任何其他浏览数据。 |
 | `favicon` | 读取 Chrome 本地已缓存的网站图标，用于展示书签卡片上的站点图标。图标取自本机缓存，不会向任何第三方服务器发起请求。 |
+| `storage` | 通过 Chrome 同步在同一账号的设备之间同步显示偏好：主题、卡片尺寸、字体、不透明度、圆角，以及背景开关、位置、缩放、平铺和 http/https 背景图地址。本地上传的图片和视频、目录密码、当前目录不会同步。 |
 
 ### 数据使用
 
@@ -95,7 +96,7 @@ Summary: Turn Chrome's new tab into a tidy grid of your bookmarks, organized by 
 |---|---|
 | 是否收集用户数据 | 否（不上传、不共享、不出售） |
 | 书签数据 | 仅在本机内存中读取用于渲染，不落盘、不外传 |
-| 设置与背景图 | 存本机（设置存 localStorage，背景图存 IndexedDB） |
+| 设置与背景图 | 显示偏好经 Chrome 同步跟随登录账号；本地上传的图片和视频仍只存在本机 IndexedDB。目录密码只存在本机。 |
 | 网络请求 | 核心功能不依赖网络；页面会加载 Google Fonts 字体样式，选择 MiSans 或鸿蒙字体时会按需加载 jsDelivr 字体样式。背景图片和 MP4 视频只支持本地上传并存储在本机。用户主动打开书签时，浏览器会导航到该书签地址。 |
 | 是否使用远程代码 | 否，全部逻辑打包在扩展内 |
 | 隐私政策 URL | `[你的隐私政策页地址]`（模板见同目录 privacy-policy.html，必须部署成公开 HTTPS 地址） |

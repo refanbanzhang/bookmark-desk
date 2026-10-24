@@ -6,7 +6,8 @@
   "version": "1.2.22",
   "permissions": [
     "bookmarks",
-    "favicon"
+    "favicon",
+    "storage"
   ],
   "chrome_url_overrides": {
     "newtab": "index.html"
