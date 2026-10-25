@@ -1,7 +1,7 @@
 {
   "name": "bookmark-desk",
   "private": true,
-  "version": "1.2.22",
+  "version": "1.2.23",
   "type": "module",
   "scripts": {
     "dev": "vite",
