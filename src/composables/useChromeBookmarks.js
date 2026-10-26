@@ -50,6 +50,7 @@ export const getChromeNodeOps = () => {
   const api = window.chrome?.bookmarks
   return {
     update: (id, title) => wrapChromeCallback((resolve) => api.update(id, { title }, resolve)),
+    create: (bookmark) => wrapChromeCallback((resolve) => api.create(bookmark, resolve)),
     remove: (id) => wrapChromeCallback((resolve) => api.remove(id, resolve)),
     removeTree: (id) => wrapChromeCallback((resolve) => api.removeTree(id, resolve)),
     move: (id, destination = {}) =>

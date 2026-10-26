@@ -27,6 +27,22 @@ export const collectNodes = (nodes = [], output = []) => {
   return output
 }
 
+export const findNodePath = (nodes = [], targetId, trail = []) => {
+  for (const node of nodes) {
+    const next = [...trail, String(node.id)]
+    if (String(node.id) === String(targetId)) {
+      return next
+    }
+    if (hasChildren(node)) {
+      const found = findNodePath(node.children, targetId, next)
+      if (found) {
+        return found
+      }
+    }
+  }
+  return null
+}
+
 export const findNodeById = (nodes = [], targetId) => {
   for (const node of nodes) {
     if (String(node.id) === String(targetId)) {
@@ -203,6 +219,26 @@ export const pruneNodesByIds = (nodes = [], ids = []) => {
 
     return [{ ...node }]
   })
+}
+
+export const insertChildNode = (nodes = [], parentId, node) => {
+  if (node?.id === undefined || node?.id === null || node?.id === '') {
+    throw new Error('节点缺少 id')
+  }
+
+  const parent = normalizeParentId(parentId)
+  if (parent !== null && !findNodeById(nodes, parent)) {
+    throw new Error('找不到上级目录')
+  }
+
+  const siblings =
+    parent === null ? nodes : findNodeById(nodes, parent)?.children || []
+  const insertion = insertNodeAtIndex(nodes, parent, siblings.length, node)
+  if (!insertion.inserted) {
+    throw new Error('找不到上级目录')
+  }
+
+  return insertion.nodes
 }
 
 export const renameNodeInTree = (nodes = [], targetId, title) =>

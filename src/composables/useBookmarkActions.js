@@ -1,5 +1,5 @@
 import { computed, nextTick, ref, watch } from 'vue'
-import { hasChildren, pruneNodesByIds, renameNodeInTree } from '../utils/bookmarkTree'
+import { hasChildren, insertChildNode, pruneNodesByIds, renameNodeInTree } from '../utils/bookmarkTree'
 import { getChromeNodeOps, hasChromeBookmarks } from './useChromeBookmarks'
 import { useBookmarkTree } from './useBookmarkTree'
 
@@ -11,11 +11,19 @@ const editingTitle = ref('')
 const editError = ref('')
 const editInputRef = ref(null)
 const deletingNode = ref(null)
+const creating = ref(false)
+const createParentId = ref(null)
+const createParentTitle = ref('')
+const createTitle = ref('')
+const createError = ref('')
+const createInputRef = ref(null)
+
+const nextLocalId = () => `local-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 
 const nodeKind = (node) => (node ? (hasChildren(node) ? '文件夹' : '书签') : '')
 
 export const useBookmarkActions = () => {
-  const { bookmarkTree, warning } = useBookmarkTree()
+  const { bookmarkTree, warning, chromeRootFolderId } = useBookmarkTree()
 
   const editingKind = computed(() => nodeKind(editingNode.value))
   const deletingKind = computed(() => nodeKind(deletingNode.value))
@@ -75,6 +83,58 @@ export const useBookmarkActions = () => {
     }
   }
 
+  const closeCreate = () => {
+    creating.value = false
+    createParentId.value = null
+    createParentTitle.value = ''
+    createTitle.value = ''
+    createError.value = ''
+  }
+
+  const openCreate = (parentId = null, parentTitle = '') => {
+    creating.value = true
+    createParentId.value = parentId ?? null
+    createParentTitle.value = parentTitle || ''
+    createTitle.value = ''
+    createError.value = ''
+  }
+
+  const saveCreate = async () => {
+    const name = createTitle.value.trim()
+    if (!name) {
+      createError.value = '名称不能为空。'
+      return null
+    }
+
+    const parentId = createParentId.value
+
+    try {
+      let createdId = nextLocalId()
+      if (hasChromeBookmarks()) {
+        const ops = getChromeNodeOps()
+        const chromeParentId = parentId || chromeRootFolderId.value
+        if (!chromeParentId) {
+          throw new Error('找不到上级目录')
+        }
+        const created = await ops.create({ parentId: String(chromeParentId), title: name })
+        if (!created?.id) {
+          throw new Error('新建目录失败')
+        }
+        createdId = String(created.id)
+      }
+
+      const folder = { id: createdId, title: name, children: [] }
+      bookmarkTree.value = insertChildNode(bookmarkTree.value, parentId, folder)
+      warning.value = hasChromeBookmarks() ? '' : '当前为演示数据，新建目录仅在页面内生效。'
+      closeCreate()
+      return folder
+    } catch (error) {
+      console.error('create folder failed', error)
+      createError.value = error instanceof Error ? error.message : '新建目录失败。'
+      return null
+    }
+  }
+
   const openEdit = (node) => {
     editingNode.value = node
     editingTitle.value = node?.title || ''
@@ -109,6 +169,14 @@ export const useBookmarkActions = () => {
     }
   }
 
+  watch(creating, async (open) => {
+    if (!open) {
+      return
+    }
+    await nextTick()
+    createInputRef.value?.focus?.()
+  })
+
   // 打开重命名对话框后自动聚焦并全选，保持原有交互
   watch(editingNode, async (node) => {
     if (!node) {
@@ -134,6 +202,15 @@ export const useBookmarkActions = () => {
     openDeleteConfirm,
     closeDeleteConfirm,
     confirmDelete,
-    deleteNode
+    deleteNode,
+    creating,
+    createParentId,
+    createParentTitle,
+    createTitle,
+    createError,
+    createInputRef,
+    openCreate,
+    closeCreate,
+    saveCreate
   }
 }

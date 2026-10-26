@@ -17,7 +17,9 @@
 - 书签行使用 Chrome 自带 favicon 缓存中的网站图标（向 `/_favicon` 请求 64px 原图后缩放到卡内 22px / 磁贴 36px，读取失败时回退为字母占位）。
 - 设置背景图后，目录 Tab 与空态会自动落到卡片面上，保证文字在图片上依然清晰。
 - 拖拽语义按拖动对象区分：拖书签可调顺序，拖到目录卡片标题栏/目录行/顶部 Tab 即移入该目录；拖目录卡片或顶部 Tab 则在同级之间换位排序。
-- 右键菜单支持重命名与删除（文件夹删除走二次确认）。
+- 右键菜单支持重命名与删除（文件夹删除走二次确认）。目录上可新建子目录；顶栏「新建目录」把文件夹建在当前所在目录，并写回 Chrome 书签。
+- 顶栏搜索按标题和地址模糊匹配整棵书签树：忽略大小写、协议和 `www`，多个词都要命中。未解锁的加密目录只匹配目录名，不露出里面的书签。
+- 打开过的书签会出现在「最近访问」，只存在本机，不进 Chrome 同步。加密目录里的书签在解锁前不会出现在这里。
 - 浅色/深色主题，跟随系统偏好并记忆手动选择。手动选择过的主题会经 `chrome.storage.sync` 跟随 Chrome 账号。
 - 「显示设置」对话框（原「背景设置」）里可调卡片尺寸、背景图（URL 或本地上传，本地图存 IndexedDB）、背景透明度、磨砂与卡片不透明度。卡片尺寸、字体、不透明度、圆角、背景开关与位置，以及 http/https 背景图地址会跟着 Chrome 账号同步；本地上传的图片和视频、目录密码、当前目录只留在本机。「清除背景」只清图片，不会把卡片尺寸一起重置。
 - 视觉语言由设计令牌驱动（`src/styles/tokens.css`），动效只用轻量 CSS 过渡，并遵循 `prefers-reduced-motion`。
@@ -34,7 +36,7 @@ npm run dev
 
 ## 测试与打包
 ```bash
-npm test          # node --test，覆盖书签树、拖拽索引、背景设置等纯逻辑
+npm test          # node --test，覆盖书签树、搜索、最近访问、拖拽索引、背景设置等纯逻辑
 npm run build     # 产物在 dist/
 npm run release   # = build + 打包成 release/bookmark-desk-<version>.zip，供商店上传
 npm run zip       # 只打包现有 dist/，不重新构建
@@ -70,13 +72,17 @@ npm run icons     # 由 public/icons/icon.svg 重新生成 16/32/48/128 PNG（�
 │   │   ├── useChromeBookmarks.js # Chrome API 封装与打开链接
 │   │   ├── useBookmarkTree.js    # 书签树读取与状态
 │   │   ├── useBookmarkTabs.js    # 目录 Tab 派生、选中项持久化
-│   │   ├── useBookmarkActions.js # 重命名 / 删除
+│   │   ├── useBookmarkActions.js # 新建目录 / 重命名 / 删除
+│   │   ├── useBookmarkSearch.js  # 标题与地址的模糊搜索
+│   │   ├── useRecentVisits.js    # 本机最近访问
 │   │   ├── useBookmarkDrag.js    # 拖拽会话、投放目标与移动同步
 │   │   ├── useContextMenu.js     # 右键菜单定位与开关
 │   │   ├── useBackgroundImage.js # 背景设置与本地图片存储
 │   │   └── useTheme.js           # 主题读取与切换
 │   ├── components/               # 展示层
-│   │   ├── AppTopbar.vue         # 背景 / 主题入口
+│   │   ├── AppTopbar.vue         # 搜索、新建目录、背景 / 主题入口
+│   │   ├── RecentStrip.vue       # 最近访问
+│   │   ├── CreateFolderDialog.vue # 新建目录
 │   │   ├── FolderTabs.vue        # 目录 Tab：书签移入目标，也可拖动换位
 │   │   ├── BookmarkBoard.vue     # 骨架屏 / 一格一卡网格 / 空状态
 │   │   ├── BookmarkTree.vue      # 递归可拖拽列表（顶层即一格一卡）

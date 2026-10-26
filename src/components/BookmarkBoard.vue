@@ -14,6 +14,18 @@ const props = defineProps({
   parentId: {
     type: [String, Number],
     default: null
+  },
+  sortable: {
+    type: Boolean,
+    default: true
+  },
+  emptyTitle: {
+    type: String,
+    default: '暂无书签'
+  },
+  emptyHint: {
+    type: String,
+    default: '用右上角新建目录，或在 Chrome 书签管理器里添加内容。'
   }
 })
 
@@ -96,12 +108,13 @@ watch(
       :nodes="nodes"
       :parent-id="parentId"
       :depth="0"
+      :sortable="sortable"
       @open-folder="emit('open-folder', $event)"
     />
   </div>
 
   <div v-else class="empty">
-    <b class="empty__title">暂无书签</b>
-    在 Chrome 书签管理器中添加内容后，重新打开新标签页即可。
+    <b class="empty__title">{{ emptyTitle }}</b>
+    {{ emptyHint }}
   </div>
 </template>

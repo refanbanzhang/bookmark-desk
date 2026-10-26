@@ -1,13 +1,13 @@
 <script setup>
 import { computed } from 'vue'
-import { KeyRound, Pencil, Trash2 } from 'lucide-vue-next'
+import { FolderPlus, KeyRound, Pencil, Trash2 } from 'lucide-vue-next'
 import { hasChildren } from '../utils/bookmarkTree'
 import { useBookmarkActions } from '../composables/useBookmarkActions'
 import { useContextMenu } from '../composables/useContextMenu'
 import { useFolderAccess } from '../composables/useFolderAccess'
 
 const { contextNode, contextKind, contextMenuStyle, closeContextMenu } = useContextMenu()
-const { openEdit, openDeleteConfirm } = useBookmarkActions()
+const { openEdit, openDeleteConfirm, openCreate } = useBookmarkActions()
 const { isProtected, openSet, openRemove } = useFolderAccess()
 
 const caption = computed(() => {
@@ -23,6 +23,12 @@ const caption = computed(() => {
   }
   return host ? `${title} · ${host}` : title
 })
+
+const onCreateFolder = () => {
+  if (!contextNode.value) return
+  openCreate(contextNode.value.id, contextNode.value.title || '未命名目录')
+  closeContextMenu()
+}
 
 const onRename = () => {
   if (!contextNode.value) return
@@ -62,6 +68,16 @@ const onRemoveAccess = () => {
     @click.stop
   >
     <p class="menu__cap">{{ caption }}</p>
+    <button
+      v-if="hasChildren(contextNode)"
+      class="menu__item"
+      type="button"
+      role="menuitem"
+      @click="onCreateFolder"
+    >
+      <FolderPlus :size="14" />
+      新建子目录
+    </button>
     <button class="menu__item" type="button" role="menuitem" @click="onRename">
       <Pencil :size="14" />
       重命名{{ contextKind }}

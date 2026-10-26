@@ -1,8 +1,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
+  findNodePath,
   getMoveToIndexPosition,
   getFolderOrderMovePosition,
+  insertChildNode,
   moveNodeToFinalIndexInTree,
   moveNodeToIndexInTree,
   swapNodesInTree
@@ -115,4 +117,21 @@ test('getFolderOrderMovePosition keeps the chrome index for a move upwards', () 
 
 test('getFolderOrderMovePosition rejects nodes that are not top level', () => {
   assert.equal(getFolderOrderMovePosition(makeTree(), 'b1', 'bar'), null)
+})
+
+test('findNodePath returns ids from the root down to the target', () => {
+  assert.deepEqual(findNodePath(makeTree(), 'b3-2'), ['bar', 'b3', 'b3-2'])
+  assert.equal(findNodePath(makeTree(), 'missing'), null)
+})
+
+test('insertChildNode appends a folder and throws when the parent is missing', () => {
+  const folder = { id: 'b4', title: '新建', children: [] }
+  const next = insertChildNode(makeTree(), 'b3', folder)
+  assert.deepEqual(
+    next[0].children.find((node) => node.id === 'b3').children.map((node) => node.id),
+    ['b3-1', 'b3-2', 'b4']
+  )
+  assert.throws(() => insertChildNode(makeTree(), 'missing', folder), /找不到上级目录/)
+  const rooted = insertChildNode(makeTree(), null, folder)
+  assert.equal(rooted.at(-1).id, 'b4')
 })
