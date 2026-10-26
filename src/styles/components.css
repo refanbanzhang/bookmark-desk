@@ -103,6 +103,16 @@
   background: var(--bg-pressed);
 }
 
+.icon-btn:disabled,
+.icon-btn:disabled:hover,
+.icon-btn:disabled:active {
+  opacity: 0.45;
+  cursor: default;
+  color: var(--text-2);
+  background: var(--bg-elev);
+  border-color: var(--border);
+}
+
 /* ---------- 按钮 ---------- */
 .btn {
   height: 32px;

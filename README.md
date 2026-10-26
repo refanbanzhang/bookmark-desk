@@ -18,6 +18,7 @@
 - 设置背景图后，目录 Tab 与空态会自动落到卡片面上，保证文字在图片上依然清晰。
 - 拖拽语义按拖动对象区分：拖书签可调顺序，拖到目录卡片标题栏/目录行/顶部 Tab 即移入该目录；拖目录卡片或顶部 Tab 则在同级之间换位排序。
 - 右键菜单支持重命名与删除（文件夹删除走二次确认）。
+- 顶栏「导出备份」一次下载一个 HTML 文件。正文是 Netscape 书签（书签栏、其他书签、移动设备书签都在里面，书签栏带 `PERSONAL_TOOLBAR_FOLDER`，Chrome 书签管理器可直接导入）。文件末尾的注释里是本机显示设置、本地背景图或视频，以及目录密码的盐和哈希。文件只落在你点保存的位置，扩展不上传。没有 Chrome 书签 API 时导出的是演示数据，文件名带 `demo`，页面会提示这不是你的书签。
 - 浅色/深色主题，跟随系统偏好并记忆手动选择。手动选择过的主题会经 `chrome.storage.sync` 跟随 Chrome 账号。
 - 「显示设置」对话框（原「背景设置」）里可调卡片尺寸、背景图（URL 或本地上传，本地图存 IndexedDB）、背景透明度、磨砂与卡片不透明度。卡片尺寸、字体、不透明度、圆角、背景开关与位置，以及 http/https 背景图地址会跟着 Chrome 账号同步；本地上传的图片和视频、目录密码、当前目录只留在本机。「清除背景」只清图片，不会把卡片尺寸一起重置。
 - 视觉语言由设计令牌驱动（`src/styles/tokens.css`），动效只用轻量 CSS 过渡，并遵循 `prefers-reduced-motion`。
@@ -74,9 +75,10 @@ npm run icons     # 由 public/icons/icon.svg 重新生成 16/32/48/128 PNG（�
 │   │   ├── useBookmarkDrag.js    # 拖拽会话、投放目标与移动同步
 │   │   ├── useContextMenu.js     # 右键菜单定位与开关
 │   │   ├── useBackgroundImage.js # 背景设置与本地图片存储
-│   │   └── useTheme.js           # 主题读取与切换
+│   │   ├── useTheme.js           # 主题读取与切换
+│   │   └── useBackup.js          # 一键导出书签与本机设置
 │   ├── components/               # 展示层
-│   │   ├── AppTopbar.vue         # 背景 / 主题入口
+│   │   ├── AppTopbar.vue         # 导出备份 / 背景 / 主题入口
 │   │   ├── FolderTabs.vue        # 目录 Tab：书签移入目标，也可拖动换位
 │   │   ├── BookmarkBoard.vue     # 骨架屏 / 一格一卡网格 / 空状态
 │   │   ├── BookmarkTree.vue      # 递归可拖拽列表（顶层即一格一卡）
@@ -87,7 +89,7 @@ npm run icons     # 由 public/icons/icon.svg 重新生成 16/32/48/128 PNG（�
 │   │   ├── RenameDialog.vue      # 重命名
 │   │   ├── DeleteConfirmDialog.vue # 删除确认
 │   │   └── BackgroundSettingsDialog.vue # 背景设置
-│   ├── utils/                    # 纯函数：书签树变换、拖拽索引、favicon 地址、背景设置归一化
+│   ├── utils/                    # 纯函数：书签树变换、拖拽索引、favicon 地址、背景设置归一化、备份文件
 │   └── mock/                     # 无 Chrome API 时的演示数据
 ├── test/                         # node:test 单元测试
 └── docs/design/                  # 重构设计稿（令牌、界面、组件拆分方案）

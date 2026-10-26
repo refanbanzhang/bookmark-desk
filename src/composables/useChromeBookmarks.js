@@ -46,6 +46,16 @@ export const fetchBookmarkTree = async () => {
   }
 }
 
+/** 备份要整棵树：书签栏、其他书签、移动设备书签都在根节点下面。 */
+export const fetchBookmarkRoots = async () => {
+  const tree = await wrapChromeCallback((resolve) => window.chrome.bookmarks.getTree(resolve))
+  const root = Array.isArray(tree) ? tree[0] : null
+  if (!Array.isArray(root?.children)) {
+    throw new Error('读取书签失败，备份没有导出。')
+  }
+  return root.children
+}
+
 export const getChromeNodeOps = () => {
   const api = window.chrome?.bookmarks
   return {
