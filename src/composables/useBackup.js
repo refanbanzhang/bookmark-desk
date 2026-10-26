@@ -87,13 +87,20 @@ export const useBackup = () => {
         nodes = bookmarkTree.value
       }
 
+      let folderAccess
+      try {
+        folderAccess = readFolderAccessRecords()
+      } catch (error) {
+        throw new Error('目录密码数据已损坏，备份没有导出。', { cause: error })
+      }
+
       const file = createBackupFile({
         nodes,
         source,
         theme: explicitTheme(),
         activeTab: localStorage.getItem(ACTIVE_TAB_KEY) || '',
         background: await materializeBackground(backgroundSettings.value),
-        folderAccess: readFolderAccessRecords()
+        folderAccess
       })
       downloadTextFile(file.filename, file.html)
       if (source === 'demo') {
