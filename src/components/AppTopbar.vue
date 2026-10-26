@@ -1,12 +1,14 @@
 <script setup>
-import { Moon, Palette, Sun } from 'lucide-vue-next'
+import { Download, Moon, Palette, Sun } from 'lucide-vue-next'
 import { useBackgroundImage } from '../composables/useBackgroundImage'
+import { useBackup } from '../composables/useBackup'
 import { useContextMenu } from '../composables/useContextMenu'
 import { useTheme } from '../composables/useTheme'
 
 const { theme, toggleTheme } = useTheme()
 const { openBackgroundSettings } = useBackgroundImage()
 const { closeContextMenu } = useContextMenu()
+const { exporting, exportBackup } = useBackup()
 
 const onToggleTheme = () => {
   closeContextMenu()
@@ -17,6 +19,11 @@ const onOpenBackground = () => {
   closeContextMenu()
   openBackgroundSettings()
 }
+
+const onExport = () => {
+  closeContextMenu()
+  void exportBackup()
+}
 </script>
 
 <template>
@@ -24,6 +31,17 @@ const onOpenBackground = () => {
     <h1 class="visually-hidden">我的书签</h1>
 
     <div class="topbar__actions">
+      <button
+        class="icon-btn"
+        type="button"
+        aria-label="导出备份"
+        title="导出书签与本机设置"
+        :disabled="exporting"
+        :aria-busy="exporting"
+        @click="onExport"
+      >
+        <Download :size="15" />
+      </button>
       <button
         class="icon-btn"
         type="button"

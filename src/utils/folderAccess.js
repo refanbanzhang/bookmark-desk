@@ -21,6 +21,16 @@ const writeRecords = (records) => {
   localStorage.setItem(FOLDER_ACCESS_KEY, JSON.stringify(records))
 }
 
+/** 备份只拷走盐和哈希，调用方拿不到 localStorage 里的原对象。 */
+export const readFolderAccessRecords = () => {
+  const records = readRecords()
+  const copy = {}
+  for (const [id, record] of Object.entries(records)) {
+    copy[String(id)] = record
+  }
+  return copy
+}
+
 const toHex = (bytes) => Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
 
 export const hashFolderPassword = async (password, salt) => {
