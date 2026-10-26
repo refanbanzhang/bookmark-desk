@@ -6,6 +6,7 @@ import { getFaviconUrl } from '../utils/favicon'
 import { isBookmarkDragActive, useBookmarkDrag } from '../composables/useBookmarkDrag'
 import { useContextMenu } from '../composables/useContextMenu'
 import { openBookmarkUrl } from '../composables/useChromeBookmarks'
+import { useRecentVisits } from '../composables/useRecentVisits'
 import { useFolderAccess } from '../composables/useFolderAccess'
 import { isFolderCenterDropTarget } from '../utils/folderDropZone'
 
@@ -19,6 +20,7 @@ const props = defineProps({
 const { activeDropFolderId, handleFolderDragTargetChange } = useBookmarkDrag()
 const { openContextMenu } = useContextMenu()
 const { requestAccess, isProtected, isUnlocked } = useFolderAccess()
+const { recordVisit } = useRecentVisits()
 
 const isFolder = computed(() => hasChildren(props.node))
 const host = computed(() => {
@@ -59,6 +61,10 @@ onMounted(() => {
   })
 })
 
+const visit = () => {
+  recordVisit(props.node)
+}
+
 const onClick = (event) => {
   if (isFolder.value) {
     requestAccess(props.node)
@@ -67,6 +73,7 @@ const onClick = (event) => {
   if (!props.node.url || event.target.closest('a')) {
     return
   }
+  visit()
   openBookmarkUrl(props.node.url, { background: false })
 }
 
@@ -75,7 +82,15 @@ const onAuxClick = (event) => {
     return
   }
   event.preventDefault()
+  visit()
   openBookmarkUrl(props.node.url, { background: true })
+}
+
+const onLinkAux = (event) => {
+  if (event.button !== 1) {
+    return
+  }
+  visit()
 }
 
 const onContextMenu = (event) => {
@@ -149,7 +164,8 @@ const onDragLeave = (event) => {
           target="_blank"
           rel="noreferrer"
           draggable="false"
-          @click.stop
+          @click.stop="visit"
+          @auxclick="onLinkAux"
           >{{ node.title || '未命名书签' }}</a
         >
         <span ref="hostEl" class="row__host">{{ host }}</span>

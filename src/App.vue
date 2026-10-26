@@ -9,6 +9,8 @@ import RenameDialog from './components/RenameDialog.vue'
 import DeleteConfirmDialog from './components/DeleteConfirmDialog.vue'
 import ContextMenu from './components/ContextMenu.vue'
 import FolderAccessDialog from './components/FolderAccessDialog.vue'
+import CreateFolderDialog from './components/CreateFolderDialog.vue'
+import RecentStrip from './components/RecentStrip.vue'
 import { useBookmarkTree } from './composables/useBookmarkTree'
 import { useBookmarkTabs } from './composables/useBookmarkTabs'
 import { useBookmarkActions } from './composables/useBookmarkActions'
@@ -17,6 +19,8 @@ import { useTheme } from './composables/useTheme'
 import { useContextMenu } from './composables/useContextMenu'
 import { useFolderAccess } from './composables/useFolderAccess'
 import { initSyncPrefs } from './composables/useSyncPrefs'
+import { useBookmarkSearch } from './composables/useBookmarkSearch'
+import { useRecentVisits } from './composables/useRecentVisits'
 
 const { loading, warning, loadBookmarks } = useBookmarkTree()
 const {
@@ -28,9 +32,12 @@ const {
   isDrilledDown,
   switchTab,
   openFolder,
+  revealFolder,
   goBack,
   initActiveTab
 } = useBookmarkTabs()
+const { query, isSearching, results, clearQuery } = useBookmarkSearch()
+const { recentNodes } = useRecentVisits()
 const {
   hasBackgroundImage,
   hasBackgroundVideo,
@@ -58,7 +65,7 @@ watchEffect(
 const { initTheme } = useTheme()
 const { contextMenu, closeContextMenu } = useContextMenu()
 const { requestAccess } = useFolderAccess()
-const { editingNode, deletingNode, closeEdit, closeDeleteConfirm } = useBookmarkActions()
+const { editingNode, deletingNode, creating, closeEdit, closeDeleteConfirm, closeCreate } = useBookmarkActions()
 
 const handleTabSwitch = (tabId) => {
   const folder = tabOptions.value.find((tab) => tab.id === tabId)?.node
@@ -71,6 +78,14 @@ const handleTabSwitch = (tabId) => {
 
 const handleFolderOpen = (folder) => {
   requestAccess(folder, () => {
+    if (isSearching.value) {
+      const drilled = revealFolder(folder.id)
+      clearQuery()
+      if (drilled) {
+        window.history.pushState({ bookmarkFolder: true }, '')
+      }
+      return
+    }
     if (openFolder(folder.id)) {
       window.history.pushState({ bookmarkFolder: true }, '')
     }
@@ -108,6 +123,16 @@ const handleGlobalKeydown = (event) => {
 
   if (editingNode.value) {
     closeEdit()
+    return
+  }
+
+  if (creating.value) {
+    closeCreate()
+    return
+  }
+
+  if (query.value) {
+    clearQuery()
     return
   }
 
@@ -197,13 +222,13 @@ onUnmounted(() => {
       <AppTopbar />
 
       <FolderTabs
-        v-if="tabOptions.length && !isDrilledDown"
+        v-if="tabOptions.length && !isDrilledDown && !isSearching"
         :tabs="tabOptions"
         :active-tab="activeTab"
         @switch="handleTabSwitch"
       />
 
-      <header v-else-if="isDrilledDown && currentFolder" class="folder-page-head">
+      <header v-else-if="isDrilledDown && currentFolder && !isSearching" class="folder-page-head">
         <div class="folder-page-head__title">
           <div>
             <h2 class="tab tab--active folder-page-head__name">
@@ -222,14 +247,20 @@ onUnmounted(() => {
         {{ warning }}
       </p>
 
+      <RecentStrip v-if="!loading && !isSearching && !isDrilledDown && recentNodes.length" :nodes="recentNodes" />
+
       <BookmarkBoard
-        :nodes="visibleNodes"
+        :nodes="isSearching ? results : visibleNodes"
         :loading="loading"
-        :parent-id="visibleParentId"
+        :parent-id="isSearching ? null : visibleParentId"
+        :sortable="!isSearching"
+        :empty-title="isSearching ? '没有匹配的书签' : '暂无书签'"
+        :empty-hint="isSearching ? '换个标题或地址再试。' : '用右上角新建目录，或在 Chrome 书签管理器里添加内容。'"
         @open-folder="handleFolderOpen"
       />
     </div>
 
+    <CreateFolderDialog />
     <BackgroundSettingsDialog />
     <RenameDialog />
     <DeleteConfirmDialog />

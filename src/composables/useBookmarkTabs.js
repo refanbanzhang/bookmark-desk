@@ -1,5 +1,5 @@
 import { computed, ref, watch } from 'vue'
-import { hasChildren } from '../utils/bookmarkTree'
+import { findNodePath, hasChildren } from '../utils/bookmarkTree'
 import { ACTIVE_TAB_KEY, ROOT_BOOKMARKS_TAB_ID } from '../constants'
 import { useBookmarkTree } from './useBookmarkTree'
 
@@ -85,6 +85,25 @@ export const useBookmarkTabs = () => {
     return true
   }
 
+  /** 从搜索结果打开任意层级的目录：先切到所属 Tab，再沿路径下钻。返回是否进入了子级。 */
+  const revealFolder = (folderId) => {
+    const path = findNodePath(bookmarkTree.value, folderId)
+    if (!path?.length) {
+      return false
+    }
+
+    const [rootId, ...rest] = path
+    const root = bookmarkTree.value.find((node) => String(node.id) === rootId)
+    if (!root || !hasChildren(root)) {
+      return false
+    }
+
+    activeTab.value = rootId
+    drilldownIds.value = rest
+    localStorage.setItem(ACTIVE_TAB_KEY, rootId)
+    return rest.length > 0
+  }
+
   const goBack = () => {
     if (!drilldownIds.value.length) {
       return false
@@ -139,6 +158,7 @@ export const useBookmarkTabs = () => {
     isDrilledDown,
     switchTab,
     openFolder,
+    revealFolder,
     goBack,
     initActiveTab
   }

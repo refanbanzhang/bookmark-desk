@@ -3,8 +3,8 @@ import { hasChildren, findNodeById } from '../utils/bookmarkTree'
 import { ROOT_BOOKMARKS_TAB_ID } from '../constants'
 import { useBookmarkTree } from './useBookmarkTree'
 
-const MENU_WIDTH = 186
-const MENU_HEIGHT = 112
+const MENU_WIDTH = 196
+const MENU_HEIGHT = 228
 const MENU_PADDING = 8
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value))

@@ -23,6 +23,10 @@ const props = defineProps({
   depth: {
     type: Number,
     default: 0
+  },
+  sortable: {
+    type: Boolean,
+    default: true
   }
 })
 
@@ -186,7 +190,8 @@ onUnmounted(() => {
     drag-class="row--drag"
     handle=".drag-handle"
     :animation="0"
-    :group="{ name: 'bookmark-tree', pull: true, put: true }"
+    :disabled="!sortable"
+    :group="{ name: 'bookmark-tree', pull: sortable, put: sortable }"
     :move="onMove"
     @start="onDragStart"
     @end="onDragEnd"
