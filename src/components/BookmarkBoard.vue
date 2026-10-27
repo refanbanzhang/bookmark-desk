@@ -25,7 +25,7 @@ const props = defineProps({
   },
   emptyHint: {
     type: String,
-    default: '用右上角新建目录，或在 Chrome 书签管理器里添加内容。'
+    default: '在 Chrome 书签管理器里添加内容。'
   }
 })
 

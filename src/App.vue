@@ -255,7 +255,7 @@ onUnmounted(() => {
         :parent-id="isSearching ? null : visibleParentId"
         :sortable="!isSearching"
         :empty-title="isSearching ? '没有匹配的书签' : '暂无书签'"
-        :empty-hint="isSearching ? '换个标题或地址再试。' : '用右上角新建目录，或在 Chrome 书签管理器里添加内容。'"
+        :empty-hint="isSearching ? '换个标题或地址再试。' : '在 Chrome 书签管理器里添加内容。'"
         @open-folder="handleFolderOpen"
       />
     </div>

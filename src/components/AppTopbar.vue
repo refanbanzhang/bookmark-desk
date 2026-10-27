@@ -1,10 +1,8 @@
 <script setup>
-import { Download, FolderPlus, Moon, Palette, Search, Sun } from 'lucide-vue-next'
+import { Download, Moon, Palette, Search, Sun } from 'lucide-vue-next'
 import { useBackgroundImage } from '../composables/useBackgroundImage'
 import { useBackup } from '../composables/useBackup'
-import { useBookmarkActions } from '../composables/useBookmarkActions'
 import { useBookmarkSearch } from '../composables/useBookmarkSearch'
-import { useBookmarkTabs } from '../composables/useBookmarkTabs'
 import { useContextMenu } from '../composables/useContextMenu'
 import { useTheme } from '../composables/useTheme'
 
@@ -13,8 +11,6 @@ const { openBackgroundSettings } = useBackgroundImage()
 const { closeContextMenu } = useContextMenu()
 const { exporting, exportBackup } = useBackup()
 const { query } = useBookmarkSearch()
-const { visibleParentId, currentFolder } = useBookmarkTabs()
-const { openCreate } = useBookmarkActions()
 
 const onToggleTheme = () => {
   closeContextMenu()
@@ -29,12 +25,6 @@ const onOpenBackground = () => {
 const onExport = () => {
   closeContextMenu()
   void exportBackup()
-}
-
-const onCreateFolder = () => {
-  closeContextMenu()
-  const parentTitle = currentFolder.value?.title || ''
-  openCreate(visibleParentId.value, parentTitle)
 }
 </script>
 
@@ -56,19 +46,10 @@ const onCreateFolder = () => {
 
     <div class="topbar__actions">
       <button
-        class="icon-btn"
+        class="icon-btn tip"
         type="button"
-        aria-label="新建目录"
-        title="新建目录"
-        @click="onCreateFolder"
-      >
-        <FolderPlus :size="15" />
-      </button>
-      <button
-        class="icon-btn"
-        type="button"
+        data-tip="导出备份"
         aria-label="导出备份"
-        title="导出书签与本机设置"
         :disabled="exporting"
         :aria-busy="exporting"
         @click="onExport"
@@ -76,19 +57,19 @@ const onCreateFolder = () => {
         <Download :size="15" />
       </button>
       <button
-        class="icon-btn"
+        class="icon-btn tip"
         type="button"
+        data-tip="显示设置"
         aria-label="显示设置"
-        title="显示设置"
         @click="onOpenBackground"
       >
         <Palette :size="15" />
       </button>
       <button
-        class="icon-btn"
+        class="icon-btn tip"
         type="button"
+        :data-tip="theme === 'dark' ? '切换为浅色模式' : '切换为夜间模式'"
         :aria-label="theme === 'dark' ? '切换为浅色模式' : '切换为夜间模式'"
-        :title="theme === 'dark' ? '切换为浅色模式' : '切换为夜间模式'"
         @click="onToggleTheme"
       >
         <Moon v-if="theme === 'dark'" :size="15" />

@@ -71,6 +71,8 @@
 
 /* ---------- 顶栏 ---------- */
 .topbar {
+  position: relative;
+  z-index: 3;
   display: flex;
   align-items: center;
   gap: var(--sp-4);
@@ -119,6 +121,10 @@
   background: transparent;
   color: var(--text);
   font-size: var(--fs-body);
+}
+
+.search__input:focus-visible {
+  box-shadow: none;
 }
 
 .search__input::-webkit-search-cancel-button {
@@ -216,6 +222,40 @@
   color: var(--text-2);
   background: var(--bg-elev);
   border-color: var(--border);
+}
+
+.tip {
+  position: relative;
+}
+
+.tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  z-index: 2;
+  padding: 3px 8px;
+  border: var(--hairline);
+  border-radius: var(--r-sm);
+  background: var(--bg-elev);
+  color: var(--text);
+  font-size: var(--fs-meta);
+  line-height: 1.4;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateX(-50%);
+}
+
+.tip:hover::after,
+.tip:focus-visible::after {
+  opacity: 1;
+}
+
+.tip:last-child::after {
+  left: auto;
+  right: 0;
+  transform: none;
 }
 
 /* ---------- 按钮 ---------- */
