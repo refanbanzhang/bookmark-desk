@@ -1,5 +1,6 @@
 <script setup>
 import { watch } from 'vue'
+import { fontLabel, t, text } from '../i18n'
 import {
   CARD_SIZE_PRESETS,
   CJK_FONT_PRESETS,
@@ -42,20 +43,20 @@ watch(backgroundSettingsOpen, (open) => {
 <template>
   <BaseModal
     v-if="backgroundSettingsOpen"
-    title="显示设置"
-    label="显示设置"
+    :title="t('settings.title')"
+    :label="t('settings.title')"
     wide
     @close="closeBackgroundSettings"
   >
     <p class="modal__desc">
-      卡片尺寸与字体对所有标签页生效；背景图和卡片不透明度保存后持久化到本地。
+      {{ t('settings.desc') }}
     </p>
 
     <section class="settings-group">
-      <h4 class="settings-group__title">版面</h4>
+      <h4 class="settings-group__title">{{ t('settings.layout') }}</h4>
 
       <label class="field">
-        <span class="field__label">卡片尺寸</span>
+        <span class="field__label">{{ t('settings.cardSize') }}</span>
         <div class="range">
           <input
             v-model.number="backgroundDraft.cardSize"
@@ -65,53 +66,53 @@ watch(backgroundSettingsOpen, (open) => {
             :max="CARD_SIZE_PRESETS.length - 1"
             step="1"
           />
-          <output class="range__value">{{ CARD_SIZE_PRESETS[backgroundDraft.cardSize]?.label }}</output>
+          <output class="range__value">{{ t(`size.${backgroundDraft.cardSize}`) }}</output>
         </div>
       </label>
 
       <div class="field">
-        <span class="field__label">西文字体</span>
+        <span class="field__label">{{ t('settings.latin') }}</span>
         <select v-model="backgroundDraft.latinFont" class="field__input">
           <option
             v-for="preset in availableLatinFonts"
             :key="preset.id"
             :value="preset.id"
           >
-            {{ preset.label }}
+            {{ fontLabel('latin', preset) }}
           </option>
         </select>
       </div>
 
       <div class="field">
-        <span class="field__label">中文字体</span>
+        <span class="field__label">{{ t('settings.cjk') }}</span>
         <select v-model="backgroundDraft.cjkFont" class="field__input">
           <option
             v-for="preset in availableCjkFonts"
             :key="preset.id"
             :value="preset.id"
           >
-            {{ preset.label }}
+            {{ fontLabel('cjk', preset) }}
           </option>
         </select>
       </div>
     </section>
 
     <section class="settings-group">
-      <h4 class="settings-group__title">背景</h4>
+      <h4 class="settings-group__title">{{ t('settings.background') }}</h4>
 
       <div class="settings-group__row">
         <label class="switch">
           <input v-model="backgroundDraft.enabled" class="switch__box" type="checkbox" />
-          启用背景图
+          {{ t('settings.enable') }}
         </label>
         <div class="actions-row">
-          <button class="btn btn--ghost" type="button" @click="triggerBackgroundUpload">上传图片或视频</button>
-          <button class="btn btn--ghost" type="button" @click="clearBackgroundImage">清除背景</button>
+          <button class="btn btn--ghost" type="button" @click="triggerBackgroundUpload">{{ t('settings.upload') }}</button>
+          <button class="btn btn--ghost" type="button" @click="clearBackgroundImage">{{ t('settings.clear') }}</button>
         </div>
       </div>
 
       <label class="field">
-        <span class="field__label">卡片不透明度</span>
+        <span class="field__label">{{ t('settings.opacity') }}</span>
         <div class="range">
           <input
             v-model.number="backgroundDraft.cardOpacity"
@@ -126,11 +127,11 @@ watch(backgroundSettingsOpen, (open) => {
       </label>
     </section>
 
-    <em v-if="backgroundError" class="field__error">{{ backgroundError }}</em>
+    <em v-if="backgroundError" class="field__error">{{ text(backgroundError) }}</em>
 
     <template #footer>
-      <button class="btn btn--ghost" type="button" @click="closeBackgroundSettings">取消</button>
-      <button class="btn btn--primary" type="button" @click="saveBackgroundSettingsForm">保存</button>
+      <button class="btn btn--ghost" type="button" @click="closeBackgroundSettings">{{ t('action.cancel') }}</button>
+      <button class="btn btn--primary" type="button" @click="saveBackgroundSettingsForm">{{ t('action.save') }}</button>
     </template>
 
     <input

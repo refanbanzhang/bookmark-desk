@@ -35,7 +35,7 @@ const loadBookmarks = async () => {
     syncStatusForMode()
   } catch (error) {
     console.error('bookmark fetch failed', error)
-    warning.value = '读取书签失败，已显示演示内容。检查 Chrome 权限后重新打开新标签页即可。'
+    warning.value = 'warn.loadFailed'
     bookmarkTree.value = cloneFallback()
     chromeRootFolderId.value = ''
   } finally {

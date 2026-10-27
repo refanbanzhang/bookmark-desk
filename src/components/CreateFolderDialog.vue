@@ -1,4 +1,5 @@
 <script setup>
+import { t, text } from '../i18n'
 import { useBookmarkActions } from '../composables/useBookmarkActions'
 import { useBookmarkSearch } from '../composables/useBookmarkSearch'
 import { useBookmarkTabs } from '../composables/useBookmarkTabs'
@@ -36,11 +37,11 @@ const onSave = async () => {
 </script>
 
 <template>
-  <BaseModal v-if="creating" title="新建目录" label="新建目录" @close="closeCreate">
-    <p class="modal__desc">创建在「{{ createParentTitle || '书签栏' }}」</p>
+  <BaseModal v-if="creating" :title="t('create.title')" :label="t('create.title')" @close="closeCreate">
+    <p class="modal__desc">{{ t('create.in', { name: createParentTitle || t('name.bar') }) }}</p>
 
     <label class="field">
-      <span class="field__label">名称</span>
+      <span class="field__label">{{ t('field.name') }}</span>
       <input
         ref="createInputRef"
         v-model="createTitle"
@@ -49,12 +50,12 @@ const onSave = async () => {
         spellcheck="false"
         @keydown.enter.prevent="onSave"
       />
-      <em v-if="createError" class="field__error">{{ createError }}</em>
+      <em v-if="createError" class="field__error">{{ text(createError) }}</em>
     </label>
 
     <template #footer>
-      <button class="btn btn--ghost" type="button" @click="closeCreate">取消</button>
-      <button class="btn btn--primary" type="button" @click="onSave">创建</button>
+      <button class="btn btn--ghost" type="button" @click="closeCreate">{{ t('action.cancel') }}</button>
+      <button class="btn btn--primary" type="button" @click="onSave">{{ t('create.action') }}</button>
     </template>
   </BaseModal>
 </template>

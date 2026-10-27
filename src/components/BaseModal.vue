@@ -1,5 +1,6 @@
 <script setup>
 import { X } from 'lucide-vue-next'
+import { t } from '../i18n'
 
 defineProps({
   title: {
@@ -33,7 +34,7 @@ const emit = defineEmits(['close'])
         <button
           class="icon-btn modal__close"
           type="button"
-          :aria-label="`关闭${label || title}`"
+          :aria-label="t('action.closeNamed', { name: label || title })"
           @click="emit('close')"
         >
           <X :size="15" />

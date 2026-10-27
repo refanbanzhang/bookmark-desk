@@ -1,5 +1,6 @@
 <script setup>
 import { ref } from 'vue'
+import { t } from '../i18n'
 import { getFaviconUrl } from '../utils/favicon'
 import { openBookmarkUrl } from '../composables/useChromeBookmarks'
 import { useContextMenu } from '../composables/useContextMenu'
@@ -49,8 +50,8 @@ const onMenu = (node, event) => {
 </script>
 
 <template>
-  <section class="recent" aria-label="最近访问">
-    <h2 class="recent__label">最近访问</h2>
+  <section class="recent" :aria-label="t('recent.label')">
+    <h2 class="recent__label">{{ t('recent.label') }}</h2>
     <div class="recent__list">
       <button
         v-for="node in nodes"
@@ -73,7 +74,7 @@ const onMenu = (node, event) => {
           @error="markFailed(node)"
         />
         <span v-else class="recent__mark" aria-hidden="true">{{ markOf(node) }}</span>
-        <span class="recent__title">{{ node.title || '未命名书签' }}</span>
+        <span class="recent__title">{{ node.title || t('name.bookmark') }}</span>
       </button>
     </div>
   </section>

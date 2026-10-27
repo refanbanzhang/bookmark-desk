@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
 import { Bookmark } from 'lucide-vue-next'
 import { ROOT_BOOKMARKS_TAB_ID } from '../constants'
+import { t } from '../i18n'
 import { useBookmarkDrag } from '../composables/useBookmarkDrag'
 import { useContextMenu } from '../composables/useContextMenu'
 
@@ -21,7 +22,15 @@ const emit = defineEmits(['switch'])
 
 const { activeDropTabId, handleTabDragOver, handleTabDragLeave, handleTabDrop, moveRootFolderOrder } =
   useBookmarkDrag()
-const { openTabContextMenu } = useContextMenu()
+const { openBarContextMenu, openTabContextMenu } = useContextMenu()
+
+const onTabContextMenu = (tab, event) => {
+  if (tab.id === ROOT_BOOKMARKS_TAB_ID) {
+    openBarContextMenu(event)
+    return
+  }
+  openTabContextMenu(tab.id, event)
+}
 
 /** 「全部书签」是合成项，只有真实目录之间才存在换位 */
 const reorderable = computed(
@@ -45,18 +54,18 @@ const onDragEnd = (event) => {
 </script>
 
 <template>
-  <VueDraggable
-    tag="nav"
-    class="tabbar"
-    aria-label="书签分类"
-    :model-value="tabs"
-    :disabled="!reorderable"
-    :animation="0"
-    ghost-class="tab--ghost"
-    chosen-class="tab--chosen"
-    drag-class="tab--drag"
-    @end="onDragEnd"
-  >
+  <nav class="tabbar" :aria-label="t('nav.tabs')" @contextmenu.prevent="openBarContextMenu">
+    <VueDraggable
+      tag="div"
+      class="tabbar__list"
+      :model-value="tabs"
+      :disabled="!reorderable"
+      :animation="0"
+      ghost-class="tab--ghost"
+      chosen-class="tab--chosen"
+      drag-class="tab--drag"
+      @end="onDragEnd"
+    >
     <button
       v-for="tab in tabs"
       :key="tab.id"
@@ -68,9 +77,9 @@ const onDragEnd = (event) => {
       type="button"
       :data-node-id="tab.id === ROOT_BOOKMARKS_TAB_ID ? null : tab.id"
       :data-folder-tab-id="tab.id === ROOT_BOOKMARKS_TAB_ID ? null : tab.id"
-      :title="tab.id === ROOT_BOOKMARKS_TAB_ID ? '' : '拖动可调整目录顺序，书签拖到这里可移入'"
+      :title="tab.id === ROOT_BOOKMARKS_TAB_ID ? '' : t('nav.tabTip')"
       @click="emit('switch', tab.id)"
-      @contextmenu.prevent.stop="openTabContextMenu(tab.id, $event)"
+      @contextmenu.prevent.stop="onTabContextMenu(tab, $event)"
       @dragover="handleTabDragOver(tab.id, $event)"
       @dragleave="handleTabDragLeave(tab.id, $event)"
       @drop="handleTabDrop(tab.id, $event)"
@@ -78,5 +87,6 @@ const onDragEnd = (event) => {
       <Bookmark v-if="tab.id === ROOT_BOOKMARKS_TAB_ID" :size="14" />
       {{ tab.label }}
     </button>
-  </VueDraggable>
+    </VueDraggable>
+  </nav>
 </template>

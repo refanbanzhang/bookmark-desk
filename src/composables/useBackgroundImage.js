@@ -185,7 +185,7 @@ export const useBackgroundImage = () => {
       : backgroundDraft.value.imageUrl
 
     if (backgroundDraft.value.enabled && !nextImageUrl) {
-      backgroundError.value = '请先上传一张背景图。'
+      backgroundError.value = 'error.bgNeed'
       return
     }
 
@@ -199,7 +199,7 @@ export const useBackgroundImage = () => {
       })
       closeBackgroundSettings()
     } catch (error) {
-      backgroundError.value = error instanceof Error ? error.message : '背景设置保存失败。'
+      backgroundError.value = error instanceof Error ? error.message : 'error.bgSave'
     }
   }
 
@@ -214,7 +214,7 @@ export const useBackgroundImage = () => {
         imageUrl: ''
       })
     } catch (error) {
-      backgroundError.value = error instanceof Error ? error.message : '背景设置保存失败。'
+      backgroundError.value = error instanceof Error ? error.message : 'error.bgSave'
     }
   }
 
@@ -240,7 +240,7 @@ export const useBackgroundImage = () => {
 
     const isMp4 = file.type === 'video/mp4' || file.name.toLowerCase().endsWith('.mp4')
     if (!file.type.startsWith('image/') && !isMp4) {
-      backgroundError.value = '请选择图片或 MP4 视频文件。'
+      backgroundError.value = 'error.bgType'
       return
     }
 
@@ -259,7 +259,7 @@ export const useBackgroundImage = () => {
       backgroundDraft.value.enabled = true
       backgroundError.value = ''
     } catch (error) {
-      backgroundError.value = error instanceof Error ? error.message : '读取图片失败。'
+      backgroundError.value = error instanceof Error ? error.message : 'error.bgRead'
     }
   }
 

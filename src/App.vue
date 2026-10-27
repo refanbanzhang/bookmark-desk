@@ -21,6 +21,7 @@ import { useFolderAccess } from './composables/useFolderAccess'
 import { initSyncPrefs } from './composables/useSyncPrefs'
 import { useBookmarkSearch } from './composables/useBookmarkSearch'
 import { useRecentVisits } from './composables/useRecentVisits'
+import { t, text } from './i18n'
 
 const { loading, warning, loadBookmarks } = useBookmarkTree()
 const {
@@ -232,19 +233,19 @@ onUnmounted(() => {
         <div class="folder-page-head__title">
           <div>
             <h2 class="tab tab--active folder-page-head__name">
-              {{ currentFolder.title || '未命名目录' }}
+              {{ currentFolder.title || t('name.folder') }}
             </h2>
           </div>
         </div>
         <button class="folder-page-head__back" type="button" @click="handleFolderBack">
           <ArrowLeft :size="16" aria-hidden="true" />
-          返回上级
+          {{ t('nav.back') }}
         </button>
       </header>
 
       <p v-if="warning" class="notice" role="status" aria-live="polite">
         <TriangleAlert :size="15" />
-        {{ warning }}
+        {{ text(warning) }}
       </p>
 
       <RecentStrip v-if="!loading && !isSearching && !isDrilledDown && recentNodes.length" :nodes="recentNodes" />
@@ -254,8 +255,8 @@ onUnmounted(() => {
         :loading="loading"
         :parent-id="isSearching ? null : visibleParentId"
         :sortable="!isSearching"
-        :empty-title="isSearching ? '没有匹配的书签' : '暂无书签'"
-        :empty-hint="isSearching ? '换个标题或地址再试。' : '在 Chrome 书签管理器里添加内容。'"
+        :empty-title="isSearching ? t('empty.search') : t('empty.none')"
+        :empty-hint="isSearching ? t('empty.searchHint') : t('empty.hint')"
         @open-folder="handleFolderOpen"
       />
     </div>

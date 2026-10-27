@@ -61,7 +61,7 @@ export const useFolderAccess = () => {
     try {
       if (mode === 'unlock') {
         if (!(await verifyFolderPassword(folderId(node), password))) {
-          error.value = '密码不正确。'
+          error.value = 'error.wrongPassword'
           return
         }
         unlockedIds.value = new Set(unlockedIds.value).add(folderId(node))
@@ -71,7 +71,7 @@ export const useFolderAccess = () => {
 
       if (mode === 'remove') {
         if (!(await verifyFolderPassword(folderId(node), password))) {
-          error.value = '密码不正确。'
+          error.value = 'error.wrongPassword'
           return
         }
         removeFolderPassword(folderId(node))
@@ -81,18 +81,18 @@ export const useFolderAccess = () => {
       }
 
       if (mode === 'change' && !(await verifyFolderPassword(folderId(node), password))) {
-        error.value = '当前密码不正确。'
+        error.value = 'error.wrongCurrent'
         return
       }
       if (!nextPassword || nextPassword.length < 4) {
-        error.value = '新密码至少需要 4 位。'
+        error.value = 'error.passwordShort'
         return
       }
       await saveFolderPassword(folderId(node), nextPassword)
       unlockedIds.value = new Set(unlockedIds.value).add(folderId(node))
       finishAccess()
     } catch (submitError) {
-      error.value = submitError instanceof Error ? submitError.message : '密码操作失败。'
+      error.value = submitError instanceof Error ? submitError.message : 'error.passwordFailed'
     }
   }
 

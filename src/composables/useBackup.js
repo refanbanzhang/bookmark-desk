@@ -104,11 +104,11 @@ export const useBackup = () => {
       })
       downloadTextFile(file.filename, file.html)
       if (source === 'demo') {
-        warning.value = '当前是演示数据，导出的书签不是你的 Chrome 书签。'
+        warning.value = 'warn.demoExport'
       }
     } catch (error) {
       console.error('backup export failed', error)
-      warning.value = error instanceof Error ? error.message : '导出备份失败。'
+      warning.value = error instanceof Error ? error.message : 'error.exportFailed'
     } finally {
       exporting.value = false
     }

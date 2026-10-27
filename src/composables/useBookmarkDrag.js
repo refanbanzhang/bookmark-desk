@@ -234,7 +234,10 @@ export const useBookmarkDrag = () => {
       } catch (error) {
         console.error('drag sync failed', error)
         await loadBookmarks()
-        warning.value = `拖拽同步失败：${error instanceof Error ? error.message : '请检查 Chrome 书签权限。'}`
+        warning.value = {
+          key: 'warn.dragFailed',
+          params: { detail: error instanceof Error ? error.message : 'error.chromePermission' }
+        }
       }
     } finally {
       clearDragDropTargets()
@@ -253,7 +256,7 @@ export const useBookmarkDrag = () => {
       targetParentId: null,
       targetIndex: position.targetIndex,
       chromeIndex: position.chromeIndex,
-      demoWarning: '当前为演示数据，目录顺序仅在页面内生效。'
+      demoWarning: 'warn.demoOrder'
     })
   }
 
@@ -367,7 +370,7 @@ export const useBookmarkDrag = () => {
           targetParentId: externalTargetFolderId,
           targetIndex: appendIndex,
           chromeIndex: appendIndex,
-          demoWarning: '当前为演示数据，移动仅在页面内生效。'
+          demoWarning: 'warn.demoMove'
         })
         resetDragSource()
         return

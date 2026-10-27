@@ -20,7 +20,7 @@ const createInputRef = ref(null)
 
 const nextLocalId = () => `local-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 
-const nodeKind = (node) => (node ? (hasChildren(node) ? '文件夹' : '书签') : '')
+const nodeKind = (node) => (node ? (hasChildren(node) ? 'folder' : 'bookmark') : '')
 
 export const useBookmarkActions = () => {
   const { bookmarkTree, warning, chromeRootFolderId } = useBookmarkTree()
@@ -56,14 +56,17 @@ export const useBookmarkActions = () => {
       }
 
       bookmarkTree.value = pruneNodesByIds(bookmarkTree.value, [targetId])
-      warning.value = hasChromeBookmarks() ? '' : '当前为演示数据，删除仅在页面内生效。'
+      warning.value = hasChromeBookmarks() ? '' : 'warn.demoDelete'
       if (editingNode.value && String(editingNode.value.id) === targetId) {
         closeEdit()
       }
       return true
     } catch (error) {
       console.error('delete failed', error)
-      warning.value = `删除失败：${error instanceof Error ? error.message : '请检查 Chrome 书签权限。'}`
+      warning.value = {
+        key: 'warn.deleteFailed',
+        params: { detail: error instanceof Error ? error.message : 'error.chromePermission' }
+      }
       return false
     }
   }
@@ -102,7 +105,7 @@ export const useBookmarkActions = () => {
   const saveCreate = async () => {
     const name = createTitle.value.trim()
     if (!name) {
-      createError.value = '名称不能为空。'
+      createError.value = 'error.createEmpty'
       return null
     }
 
@@ -125,12 +128,12 @@ export const useBookmarkActions = () => {
 
       const folder = { id: createdId, title: name, children: [] }
       bookmarkTree.value = insertChildNode(bookmarkTree.value, parentId, folder)
-      warning.value = hasChromeBookmarks() ? '' : '当前为演示数据，新建目录仅在页面内生效。'
+      warning.value = hasChromeBookmarks() ? '' : 'warn.demoCreate'
       closeCreate()
       return folder
     } catch (error) {
       console.error('create folder failed', error)
-      createError.value = error instanceof Error ? error.message : '新建目录失败。'
+      createError.value = error instanceof Error ? error.message : 'error.createFailed'
       return null
     }
   }
@@ -148,7 +151,7 @@ export const useBookmarkActions = () => {
 
     const nextTitle = editingTitle.value.trim()
     if (!nextTitle) {
-      editError.value = '名称不能为空。'
+      editError.value = 'error.createEmpty'
       return
     }
 
@@ -161,11 +164,11 @@ export const useBookmarkActions = () => {
       }
 
       bookmarkTree.value = renameNodeInTree(bookmarkTree.value, targetId, nextTitle)
-      warning.value = hasChromeBookmarks() ? '' : '当前为演示数据，重命名仅在页面内生效。'
+      warning.value = hasChromeBookmarks() ? '' : 'warn.demoRename'
       closeEdit()
     } catch (error) {
       console.error('rename failed', error)
-      editError.value = error instanceof Error ? error.message : '重命名失败。'
+      editError.value = error instanceof Error ? error.message : 'error.renameFailed'
     }
   }
 

@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
+import { t } from '../i18n'
 import { ExternalLink, GripVertical, LockKeyhole } from 'lucide-vue-next'
 import { hasChildren } from '../utils/bookmarkTree'
 import { getFaviconUrl } from '../utils/favicon'
@@ -166,11 +167,11 @@ const onDragLeave = (event) => {
           draggable="false"
           @click.stop="visit"
           @auxclick="onLinkAux"
-          >{{ node.title || '未命名书签' }}</a
+          >{{ node.title || t('name.bookmark') }}</a
         >
         <span ref="hostEl" class="row__host">{{ host }}</span>
       </template>
-      <span v-else class="row__title">{{ node.title || '未命名目录' }}</span>
+      <span v-else class="row__title">{{ node.title || t('name.folder') }}</span>
     </div>
 
     <span v-if="node.url" class="row__open" aria-hidden="true">

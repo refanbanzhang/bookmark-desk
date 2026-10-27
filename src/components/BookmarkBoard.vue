@@ -1,5 +1,6 @@
 <script setup>
 import { nextTick, onMounted, ref, watch } from 'vue'
+import { t } from '../i18n'
 import BookmarkTree from './BookmarkTree.vue'
 
 const props = defineProps({
@@ -21,11 +22,11 @@ const props = defineProps({
   },
   emptyTitle: {
     type: String,
-    default: '暂无书签'
+    default: ''
   },
   emptyHint: {
     type: String,
-    default: '在 Chrome 书签管理器里添加内容。'
+    default: ''
   }
 })
 
@@ -114,7 +115,7 @@ watch(
   </div>
 
   <div v-else class="empty">
-    <b class="empty__title">{{ emptyTitle }}</b>
-    {{ emptyHint }}
+    <b class="empty__title">{{ emptyTitle || t('empty.none') }}</b>
+    {{ emptyHint || t('empty.hint') }}
   </div>
 </template>

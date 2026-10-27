@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { Folder, LockKeyhole, UnlockKeyhole } from 'lucide-vue-next'
+import { t } from '../i18n'
 import { isBookmarkDragActive, useBookmarkDrag } from '../composables/useBookmarkDrag'
 import { useContextMenu } from '../composables/useContextMenu'
 import { useFolderAccess } from '../composables/useFolderAccess'
@@ -24,7 +25,7 @@ const { openContextMenu } = useContextMenu()
 const { isProtected, isUnlocked, requestAccess } = useFolderAccess()
 
 const folderId = computed(() => String(props.node.id))
-const title = computed(() => props.node.title || '未命名目录')
+const title = computed(() => props.node.title || t('name.folder'))
 const children = computed(() => props.node.children || [])
 const isDropTarget = computed(() => String(activeDropFolderId.value || '') === folderId.value)
 const isLocked = computed(() => isProtected(props.node) && !isUnlocked(props.node))
@@ -81,7 +82,7 @@ const openFolder = () => {
     :class="{ 'module--drop': isDropTarget }"
     role="button"
     tabindex="0"
-    :aria-label="`打开目录 ${title}`"
+    :aria-label="t('module.open', { title })"
     @click="openFolder"
     @keydown.enter="openFolder"
     @keydown.space.prevent="openFolder"
@@ -104,14 +105,14 @@ const openFolder = () => {
 
     <div v-if="isLocked" class="module__locked">
       <LockKeyhole :size="18" />
-      <span>该目录已加密</span>
+      <span>{{ t('module.locked') }}</span>
       <button class="btn btn--ghost" type="button" @click.stop="unlock">
         <UnlockKeyhole :size="14" />
-        输入密码
+        {{ t('module.unlock') }}
       </button>
     </div>
     <div v-else class="module__folder-foot">
-      <span>{{ children.length }} 项</span>
+      <span>{{ t(children.length === 1 ? 'module.count1' : 'module.count', { count: children.length }) }}</span>
     </div>
   </section>
 </template>

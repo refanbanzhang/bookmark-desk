@@ -1,6 +1,7 @@
 import { computed, ref, watch } from 'vue'
 import { findNodePath, hasChildren } from '../utils/bookmarkTree'
 import { ACTIVE_TAB_KEY, ROOT_BOOKMARKS_TAB_ID } from '../constants'
+import { t } from '../i18n'
 import { useBookmarkTree } from './useBookmarkTree'
 
 /**
@@ -17,13 +18,13 @@ export const useBookmarkTabs = () => {
     if (folders.length) {
       return folders.map((folder) => ({
         id: String(folder.id),
-        label: folder.title || '未命名目录',
+        label: folder.title || t('name.folder'),
         node: folder
       }))
     }
 
     if (bookmarkTree.value.length) {
-      return [{ id: ROOT_BOOKMARKS_TAB_ID, label: '全部书签' }]
+      return [{ id: ROOT_BOOKMARKS_TAB_ID, label: t('tab.all') }]
     }
 
     return []
