@@ -373,7 +373,7 @@ const main = async () => {
     cardRadius: 12,
     tabRadius: 10,
     position: 'center center',
-    size: 'cover',
+    size: 'contain',
     repeat: 'no-repeat'
   }
 
