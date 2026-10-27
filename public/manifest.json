@@ -3,12 +3,19 @@
   "name": "Bookmark Desk",
   "short_name": "Mark Desk",
   "description": "Organize Chrome bookmarks into a visual new tab page with folders and drag-and-drop sorting.",
-  "version": "1.2.24",
+  "version": "1.2.25",
   "permissions": [
     "bookmarks",
     "favicon",
     "storage"
   ],
+  "host_permissions": [
+    "https://cdn.jsdelivr.net/*",
+    "https://raw.githubusercontent.com/*"
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://cdn.jsdelivr.net https://raw.githubusercontent.com https://fonts.googleapis.com https://fonts.gstatic.com"
+  },
   "chrome_url_overrides": {
     "newtab": "index.html"
   },
