@@ -163,8 +163,10 @@ watch(backgroundSettingsOpen, (open) => {
             <img
               v-if="item.type === 'image'"
               class="gallery-thumb"
-              :src="item.url"
+              :src="item.thumbUrl"
               :alt="item.title"
+              loading="lazy"
+              decoding="async"
             />
             <video
               v-else
