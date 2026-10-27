@@ -124,9 +124,16 @@ test('loads defaults for missing or invalid data', async () => {
     cardRadius: 12,
     tabRadius: 10,
     position: 'center center',
-    size: 'cover',
+    size: 'contain',
     repeat: 'no-repeat'
   })
+})
+
+test('legacy cover size becomes contain so stored wallpapers are not cropped', () => {
+  assert.equal(normalizeBackgroundSettings({ size: 'cover' }).size, 'contain')
+  assert.equal(normalizeBackgroundSettings({}).size, 'contain')
+  assert.equal(createDefaultBackgroundSettings().size, 'contain')
+  assert.equal(normalizeBackgroundSettings({ size: 'auto' }).size, 'auto')
 })
 
 test('saves normalized settings and clears them', async () => {

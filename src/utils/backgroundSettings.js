@@ -127,7 +127,7 @@ export const createDefaultBackgroundSettings = () => ({
   cardRadius: 12,
   tabRadius: 10,
   position: 'center center',
-  size: 'cover',
+  size: 'contain',
   repeat: 'no-repeat'
 })
 
@@ -362,7 +362,8 @@ export const normalizeBackgroundSettings = (value = {}) => {
   const tabRadius = Number(value.tabRadius ?? value.cardRadius)
   /* 西文字体早先存在 fontFamily 上，读旧数据时接过来 */
   const latinFont = value.latinFont ?? value.fontFamily
-  const size = ['cover', 'contain', 'auto'].includes(value.size) ? value.size : fallback.size
+  /* cover 会裁掉竖图主体；设置里也没有这个选项。旧数据里的 cover 按新默认 contain 读。 */
+  const size = ['contain', 'auto'].includes(value.size) ? value.size : fallback.size
   const repeat = ['no-repeat', 'repeat', 'repeat-x', 'repeat-y'].includes(value.repeat)
     ? value.repeat
     : fallback.repeat
