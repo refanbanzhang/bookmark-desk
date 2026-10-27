@@ -1328,7 +1328,7 @@
 }
 
 .modal--wide {
-  width: min(520px, 100%);
+  width: min(560px, 100%);
 }
 
 .modal__head {
@@ -1509,6 +1509,72 @@
 
 .settings-group > :last-child {
   margin-bottom: 0;
+}
+
+.gallery-hint {
+  margin: 0 0 var(--sp-3);
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.gallery-retry {
+  margin-bottom: var(--sp-3);
+}
+
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--sp-3);
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.gallery-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+  color: inherit;
+  background: var(--bg-card);
+  border: 1px solid var(--border-2);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+}
+
+.gallery-item.is-on {
+  border-color: var(--btn);
+  box-shadow: 0 0 0 3px var(--focus);
+}
+
+.gallery-thumb {
+  width: 100%;
+  height: 72px;
+  display: block;
+  object-fit: cover;
+  background: var(--bg-hover);
+}
+
+.gallery-name {
+  padding: 6px;
+  overflow: hidden;
+  font-size: var(--fs-meta);
+  color: var(--text-2);
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gallery-tag {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 0 5px;
+  font-size: 10px;
+  line-height: 16px;
+  color: var(--on-accent);
+  background: var(--btn);
+  border-radius: var(--r-pill);
 }
 
 /* ---------- 窄屏：只压低列数上限，不越过用户选的档位 ---------- */

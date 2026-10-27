@@ -1,11 +1,12 @@
 <script setup>
-import { watch } from 'vue'
+import { ref, watch } from 'vue'
 import { fontLabel, t, text } from '../i18n'
 import {
   CARD_SIZE_PRESETS,
   CJK_FONT_PRESETS,
   LATIN_FONT_PRESETS
 } from '../utils/backgroundSettings'
+import { loadWallpaperCatalog } from '../utils/wallpaperCatalog'
 import { ensureWebfonts } from '../utils/webfonts'
 import { useBackgroundImage } from '../composables/useBackgroundImage'
 import BaseModal from './BaseModal.vue'
@@ -18,12 +19,38 @@ const {
   closeBackgroundSettings,
   saveBackgroundSettingsForm,
   clearBackgroundImage,
+  selectPresetWallpaper,
   triggerBackgroundUpload,
   handleBackgroundUpload
 } = useBackgroundImage()
 
 const availableLatinFonts = LATIN_FONT_PRESETS.filter((preset) => !preset.legacy)
 const availableCjkFonts = CJK_FONT_PRESETS.filter((preset) => !preset.legacy)
+const wallpapers = ref([])
+const galleryStatus = ref('idle')
+const galleryHint = ref('')
+
+const loadGallery = async () => {
+  if (!wallpapers.value.length) {
+    galleryStatus.value = 'loading'
+    galleryHint.value = t('settings.galleryLoading')
+  }
+
+  try {
+    const catalog = await loadWallpaperCatalog()
+    wallpapers.value = catalog.items
+    galleryStatus.value = catalog.items.length ? 'ready' : 'empty'
+    galleryHint.value = catalog.items.length ? '' : t('settings.galleryEmpty')
+  } catch {
+    if (!wallpapers.value.length) {
+      galleryStatus.value = 'error'
+      galleryHint.value = t('settings.galleryError')
+    }
+  }
+}
+
+const isSelectedWallpaper = (item) =>
+  backgroundDraft.value.enabled && backgroundDraft.value.imageUrl === item.url
 
 /* 各档中文字族的样式表在选中前不会加载，所以打开面板时统一注入，
    每颗按钮才能用自己的字形当预览——这几十 KB 只在面板打开时才花 */
@@ -36,6 +63,7 @@ watch(backgroundSettingsOpen, (open) => {
       selectedCjkFont: backgroundDraft.value.cjkFont
     })
     ensureWebfonts(availableCjkFonts.map((preset) => preset.id))
+    void loadGallery()
   }
 })
 </script>
@@ -108,6 +136,47 @@ watch(backgroundSettingsOpen, (open) => {
         <div class="actions-row">
           <button class="btn btn--ghost" type="button" @click="triggerBackgroundUpload">{{ t('settings.upload') }}</button>
           <button class="btn btn--ghost" type="button" @click="clearBackgroundImage">{{ t('settings.clear') }}</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="field__label">{{ t('settings.presets') }}</span>
+        <p v-if="galleryHint" class="gallery-hint">{{ text(galleryHint) }}</p>
+        <button
+          v-if="galleryStatus === 'error'"
+          class="btn btn--ghost gallery-retry"
+          type="button"
+          @click="loadGallery"
+        >
+          {{ t('settings.galleryRetry') }}
+        </button>
+        <div v-if="wallpapers.length" class="gallery">
+          <button
+            v-for="item in wallpapers"
+            :key="item.path"
+            class="gallery-item"
+            :class="{ 'is-on': isSelectedWallpaper(item) }"
+            type="button"
+            :title="item.title"
+            @click="selectPresetWallpaper(item)"
+          >
+            <img
+              v-if="item.type === 'image'"
+              class="gallery-thumb"
+              :src="item.url"
+              :alt="item.title"
+            />
+            <video
+              v-else
+              class="gallery-thumb"
+              :src="item.url"
+              muted
+              preload="metadata"
+              playsinline
+            />
+            <span class="gallery-name">{{ item.title }}</span>
+            <span v-if="item.type === 'video'" class="gallery-tag">{{ t('settings.videoTag') }}</span>
+          </button>
         </div>
       </div>
 

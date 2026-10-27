@@ -13,6 +13,7 @@ import {
   createDefaultBackgroundSettings,
   fontFamilyStack,
   hasStoredLocalBackgroundImage,
+  isLocalBackgroundSource,
   loadBackgroundSettings,
   normalizeBackgroundSettings,
   peekBackgroundSettings,
@@ -233,6 +234,48 @@ test('stores uploaded background image outside localStorage', async () => {
   assert.equal(persisted.imageStorage, 'indexeddb')
   assert.equal(imageStore.peek(), dataUrl)
   assert.equal(loaded.imageUrl, dataUrl)
+})
+
+test('stores a remote https video url without touching IndexedDB', async () => {
+  const storage = createMemoryStorage()
+  const imageStore = createImageStore('data:image/png;base64,old')
+  const url = 'https://cdn.jsdelivr.net/gh/refanbanzhang/cdn-images@main/wallpapers/loop.mp4'
+
+  const saved = await saveBackgroundSettings(
+    { mediaType: 'video', imageUrl: url, enabled: true },
+    storage,
+    imageStore
+  )
+  const persisted = JSON.parse(storage.dump()[BACKGROUND_SETTINGS_KEY])
+  const loaded = await loadBackgroundSettings(storage, imageStore)
+
+  assert.equal(saved.imageUrl, url)
+  assert.equal(saved.mediaType, 'video')
+  assert.equal(persisted.imageUrl, url)
+  assert.equal(persisted.imageStorage, '')
+  assert.equal(imageStore.peek(), '')
+  assert.equal(imageStore.peekVideo(), null)
+  assert.equal(loaded.imageUrl, url)
+  assert.equal(isLocalBackgroundSource(saved), false)
+})
+
+test('remote http backgrounds are not treated as local media', () => {
+  assert.equal(
+    isLocalBackgroundSource({ mediaType: 'image', imageUrl: 'https://example.com/bg.jpg' }),
+    false
+  )
+  assert.equal(
+    isLocalBackgroundSource({ mediaType: 'video', imageUrl: 'https://example.com/bg.mp4' }),
+    false
+  )
+  assert.equal(
+    isLocalBackgroundSource({ mediaType: 'video', imageUrl: 'blob:http://localhost/1' }),
+    true
+  )
+  assert.equal(
+    isLocalBackgroundSource({ mediaType: 'video', imageUrl: '__indexeddb_background_video__' }),
+    true
+  )
 })
 
 test('stores uploaded MP4 background video as a Blob outside localStorage', async () => {

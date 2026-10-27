@@ -138,6 +138,8 @@ const isBlob = (value) => typeof Blob !== 'undefined' && value instanceof Blob
 
 const isEmbeddedImageUrl = (value) => /^data:image\//.test(toTrimmedString(value))
 const isEmbeddedVideoUrl = (value) => /^data:video\//.test(toTrimmedString(value))
+const isRemoteHttpUrl = (value) => /^https?:\/\//i.test(toTrimmedString(value))
+const isBlobUrl = (value) => /^blob:/i.test(toTrimmedString(value))
 
 const isQuotaError = (error) =>
   error instanceof Error && (QUOTA_ERROR_NAMES.has(error.name) || error.message.includes('quota'))
@@ -254,6 +256,18 @@ const backgroundImageStore = {
 
 const buildPersistedPayload = async (normalized, imageStore) => {
   if (normalized.mediaType === 'video') {
+    if (isRemoteHttpUrl(normalized.imageUrl)) {
+      await imageStore.clearImageUrl()
+      if (imageStore.clearVideo) {
+        await imageStore.clearVideo()
+      }
+      return {
+        ...normalized,
+        imageUrl: normalized.imageUrl,
+        imageStorage: ''
+      }
+    }
+
     if (isBlob(normalized.imageUrl) || isEmbeddedVideoUrl(normalized.imageUrl)) {
       const stored = imageStore.setVideo
         ? await imageStore.setVideo(normalized.imageUrl)
@@ -261,7 +275,7 @@ const buildPersistedPayload = async (normalized, imageStore) => {
       if (!stored) {
         throw new Error('本地视频保存失败，请重试或换一个视频文件。')
       }
-    } else if (!/^blob:/.test(normalized.imageUrl)) {
+    } else if (!isBlobUrl(normalized.imageUrl)) {
       throw new Error('视频资源已失效，请重新上传 MP4 文件。')
     }
 
@@ -421,7 +435,7 @@ export const isLocalBackgroundSource = (settings) => {
   if (!settings || typeof settings !== 'object') {
     return false
   }
-  if (settings.mediaType === 'video' || isStoredLocalImage(settings) || isStoredLocalVideo(settings)) {
+  if (isStoredLocalImage(settings) || isStoredLocalVideo(settings)) {
     return true
   }
   const url = settings.imageUrl
@@ -431,7 +445,7 @@ export const isLocalBackgroundSource = (settings) => {
   if (typeof url !== 'string' || !url) {
     return false
   }
-  return /^data:/i.test(url) || /^blob:/i.test(url)
+  return /^data:/i.test(url) || isBlobUrl(url)
 }
 
 export const hasStoredLocalBackgroundMedia = (storage = globalThis.localStorage) =>
