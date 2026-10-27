@@ -176,7 +176,6 @@ watch(backgroundSettingsOpen, (open) => {
               preload="metadata"
               playsinline
             />
-            <span class="gallery-name">{{ item.title }}</span>
             <span v-if="item.type === 'video'" class="gallery-tag">{{ t('settings.videoTag') }}</span>
           </button>
         </div>

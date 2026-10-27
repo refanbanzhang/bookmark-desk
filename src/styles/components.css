@@ -1521,48 +1521,41 @@
   margin-bottom: var(--sp-3);
 }
 
+/* 内边距留给选中描边；瓦片自己不 overflow:hidden，否则圆角框和 box-shadow 会被切掉 */
 .gallery {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--sp-3);
-  max-height: 240px;
+  gap: var(--sp-4);
+  max-height: 268px;
+  padding: 3px;
   overflow-y: auto;
 }
 
 .gallery-item {
   position: relative;
-  display: flex;
-  flex-direction: column;
+  display: block;
   padding: 0;
-  overflow: hidden;
   color: inherit;
-  background: var(--bg-card);
-  border: 1px solid var(--border-2);
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
   border-radius: var(--r-sm);
   cursor: pointer;
 }
 
 .gallery-item.is-on {
   border-color: var(--btn);
-  box-shadow: 0 0 0 3px var(--focus);
+  box-shadow: 0 0 0 2px var(--focus);
 }
 
 .gallery-thumb {
   width: 100%;
-  height: 72px;
+  aspect-ratio: 4 / 3;
+  height: auto;
   display: block;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center;
   background: var(--bg-hover);
-}
-
-.gallery-name {
-  padding: 6px;
-  overflow: hidden;
-  font-size: var(--fs-meta);
-  color: var(--text-2);
-  text-align: left;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  border-radius: calc(var(--r-sm) - 1px);
 }
 
 .gallery-tag {
