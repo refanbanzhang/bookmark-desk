@@ -106,14 +106,18 @@ const BACKGROUND_IMAGE_DB_NAME = 'bookmark-background-settings-db'
 const BACKGROUND_IMAGE_STORE_NAME = 'background-assets'
 const BACKGROUND_IMAGE_KEY = 'active-background-image'
 const BACKGROUND_VIDEO_KEY = 'active-background-video'
+const BACKGROUND_CACHE_KEY = 'active-background-cache'
 const BACKGROUND_IMAGE_FLAG = '__indexeddb_background_image__'
 const BACKGROUND_VIDEO_FLAG = '__indexeddb_background_video__'
+const DOWNLOAD_FAILED = '壁纸下载失败，请重试。'
+const QUOTA_FAILED = '背景设置保存失败，存储空间不足。请改用图片地址或换一张更小的图片。'
 const QUOTA_ERROR_NAMES = new Set([
   'QuotaExceededError',
   'NS_ERROR_DOM_QUOTA_REACHED'
 ])
 
 let dbPromise = null
+let cacheChain = Promise.resolve()
 
 export const createDefaultBackgroundSettings = () => ({
   enabled: false,
@@ -127,7 +131,7 @@ export const createDefaultBackgroundSettings = () => ({
   cardRadius: 12,
   tabRadius: 10,
   position: 'center center',
-  size: 'contain',
+  size: 'cover',
   repeat: 'no-repeat'
 })
 
@@ -140,6 +144,65 @@ const isEmbeddedImageUrl = (value) => /^data:image\//.test(toTrimmedString(value
 const isEmbeddedVideoUrl = (value) => /^data:video\//.test(toTrimmedString(value))
 const isRemoteHttpUrl = (value) => /^https?:\/\//i.test(toTrimmedString(value))
 const isBlobUrl = (value) => /^blob:/i.test(toTrimmedString(value))
+
+export const isRemoteBackgroundUrl = (value) => isRemoteHttpUrl(value)
+
+const TYPE_BY_EXT = {
+  mp4: 'video/mp4',
+  webm: 'video/webm',
+  ogv: 'video/ogg',
+  mov: 'video/quicktime',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  avif: 'image/avif'
+}
+
+const mediaTypeForUrl = (url) => {
+  const path = toTrimmedString(url).split(/[?#]/)[0]
+  const dot = path.lastIndexOf('.')
+  const ext = dot === -1 ? '' : path.slice(dot + 1).toLowerCase()
+  return TYPE_BY_EXT[ext] || ''
+}
+
+/** 有的 CDN 不给视频标 video/mp4，<video> 会当成未知类型，画面是空的。 */
+const withMediaType = (url, blob) => {
+  if (!isBlob(blob)) {
+    return blob
+  }
+  if (blob.type && blob.type !== 'application/octet-stream') {
+    return blob
+  }
+  const type = mediaTypeForUrl(url)
+  return type ? new Blob([blob], { type }) : blob
+}
+
+/** 选中的远程壁纸整份下到本机。失败就抛，不能假装已经存好。 */
+export const downloadBackgroundBlob = async (url, fetchImpl = globalThis.fetch) => {
+  if (typeof fetchImpl !== 'function') {
+    throw new Error(DOWNLOAD_FAILED)
+  }
+
+  let response
+  try {
+    response = await fetchImpl(url)
+  } catch {
+    throw new Error(DOWNLOAD_FAILED)
+  }
+
+  if (!response?.ok) {
+    throw new Error(DOWNLOAD_FAILED)
+  }
+
+  const blob = await response.blob()
+  if (!isBlob(blob) || blob.size === 0) {
+    throw new Error(DOWNLOAD_FAILED)
+  }
+
+  return withMediaType(url, blob)
+}
 
 const isQuotaError = (error) =>
   error instanceof Error && (QUOTA_ERROR_NAMES.has(error.name) || error.message.includes('quota'))
@@ -251,23 +314,173 @@ const backgroundImageStore = {
     })
 
     return cleared !== false
+  },
+
+  async getCached(source) {
+    const entry = await withStore('readonly', (store, resolve) => {
+      const req = store.get(BACKGROUND_CACHE_KEY)
+      req.onsuccess = () => resolve(req.result || null)
+      req.onerror = () => resolve(null)
+    })
+
+    if (!entry || entry.source !== source || !isBlob(entry.value)) {
+      return null
+    }
+
+    return entry.value
+  },
+
+  async setCached(source, blob) {
+    const saved = await withStore('readwrite', (store, resolve) => {
+      const req = store.put({
+        key: BACKGROUND_CACHE_KEY,
+        source,
+        value: blob,
+        updatedAt: Date.now()
+      })
+      req.onsuccess = () => resolve(true)
+      req.onerror = () => resolve(false)
+    })
+
+    return saved === true
+  },
+
+  async clearCached() {
+    const cleared = await withStore('readwrite', (store, resolve) => {
+      const req = store.delete(BACKGROUND_CACHE_KEY)
+      req.onsuccess = () => resolve(true)
+      req.onerror = () => resolve(false)
+    })
+
+    return cleared !== false
+  },
+
+  fetchRemote(url) {
+    return downloadBackgroundBlob(url)
+  }
+}
+
+const readCachedBlob = async (source, imageStore) => {
+  if (!imageStore?.getCached) {
+    return null
+  }
+
+  const blob = await imageStore.getCached(source)
+  return isBlob(blob) && blob.size > 0 ? withMediaType(source, blob) : null
+}
+
+export const readCachedBackground = (url, imageStore = backgroundImageStore) =>
+  readCachedBlob(toTrimmedString(url), imageStore)
+
+const enqueueCacheWrite = (task) => {
+  const run = cacheChain.then(task, task)
+  cacheChain = run.then(() => {}, () => {})
+  return run
+}
+
+let stagedUrl = ''
+let stagedBlob = null
+
+export const stageRemoteBackground = (url, blob) => {
+  const source = toTrimmedString(url)
+  const typed = withMediaType(source, blob)
+  if (!source || !isBlob(typed) || typed.size === 0) {
+    stagedUrl = ''
+    stagedBlob = null
+    return
+  }
+  stagedUrl = source
+  stagedBlob = typed
+}
+
+export const clearStagedBackground = () => {
+  stagedUrl = ''
+  stagedBlob = null
+}
+
+/**
+ * 同一条远程地址只下载一次。字节写在 IndexedDB，地址本身留在设置里给同步用。
+ * 写入串行，避免后选的壁纸被先选的下载盖掉。
+ * 点选时可以先把文件放在内存里，保存时直接落盘，不必再下一遍。
+ */
+export const cacheRemoteBackground = async (url, imageStore = backgroundImageStore) => {
+  const source = toTrimmedString(url)
+  if (!isRemoteHttpUrl(source)) {
+    throw new Error(DOWNLOAD_FAILED)
+  }
+
+  const existing = await readCachedBlob(source, imageStore)
+  if (existing) {
+    return existing
+  }
+
+  let blob = stagedUrl === source ? stagedBlob : null
+  if (!blob) {
+    if (typeof imageStore.fetchRemote !== 'function') {
+      throw new Error(DOWNLOAD_FAILED)
+    }
+    blob = withMediaType(source, await imageStore.fetchRemote(source))
+  }
+  if (!isBlob(blob) || blob.size === 0 || typeof imageStore.setCached !== 'function') {
+    throw new Error(DOWNLOAD_FAILED)
+  }
+
+  return enqueueCacheWrite(async () => {
+    const again = await readCachedBlob(source, imageStore)
+    if (again) {
+      return again
+    }
+
+    const stored = await imageStore.setCached(source, blob)
+    if (!stored) {
+      throw new Error(QUOTA_FAILED)
+    }
+    if (stagedUrl === source) {
+      clearStagedBackground()
+    }
+
+    return blob
+  })
+}
+
+/** 旧数据只有远程地址。下载成功后打上标记，下次首帧才不会再去请求这个地址。 */
+export const rememberCachedBackground = (storage = globalThis.localStorage) => {
+  const parsed = readStoredPayload(storage)
+  if (!parsed || toTrimmedString(parsed.imageStorage) === 'cache') {
+    return
+  }
+
+  const url = pickStoredImageUrl(parsed)
+  if (!isRemoteHttpUrl(url)) {
+    return
+  }
+
+  storage?.setItem?.(BACKGROUND_SETTINGS_KEY, JSON.stringify({ ...parsed, imageStorage: 'cache' }))
+}
+
+const clearRemoteCache = async (imageStore) => {
+  if (imageStore.clearCached) {
+    await imageStore.clearCached()
   }
 }
 
 const buildPersistedPayload = async (normalized, imageStore) => {
-  if (normalized.mediaType === 'video') {
-    if (isRemoteHttpUrl(normalized.imageUrl)) {
-      await imageStore.clearImageUrl()
-      if (imageStore.clearVideo) {
-        await imageStore.clearVideo()
-      }
-      return {
-        ...normalized,
-        imageUrl: normalized.imageUrl,
-        imageStorage: ''
-      }
+  if (isRemoteHttpUrl(normalized.imageUrl)) {
+    await cacheRemoteBackground(normalized.imageUrl, imageStore)
+    await imageStore.clearImageUrl()
+    if (imageStore.clearVideo) {
+      await imageStore.clearVideo()
     }
+    return {
+      ...normalized,
+      imageUrl: normalized.imageUrl,
+      imageStorage: 'cache'
+    }
+  }
 
+  await clearRemoteCache(imageStore)
+
+  if (normalized.mediaType === 'video') {
     if (isBlob(normalized.imageUrl) || isEmbeddedVideoUrl(normalized.imageUrl)) {
       const stored = imageStore.setVideo
         ? await imageStore.setVideo(normalized.imageUrl)
@@ -337,6 +550,10 @@ const isStoredLocalVideo = (parsed) =>
   (toTrimmedString(parsed?.mediaType) === 'video' &&
     toTrimmedString(parsed?.imageStorage) === 'indexeddb')
 
+/** 远程壁纸的字节已经在 IndexedDB。首帧不能把原地址写进页面，否则一刷新就又请求一次。 */
+const isCachedRemote = (parsed) =>
+  toTrimmedString(parsed?.imageStorage) === 'cache' && isRemoteHttpUrl(pickStoredImageUrl(parsed))
+
 const resolvePersistedImageUrl = async (parsed, imageStore) => {
   if (isStoredLocalVideo(parsed)) {
     const video = imageStore.getVideo ? await imageStore.getVideo() : null
@@ -362,8 +579,8 @@ export const normalizeBackgroundSettings = (value = {}) => {
   const tabRadius = Number(value.tabRadius ?? value.cardRadius)
   /* 西文字体早先存在 fontFamily 上，读旧数据时接过来 */
   const latinFont = value.latinFont ?? value.fontFamily
-  /* cover 会裁掉竖图主体；设置里也没有这个选项。旧数据里的 cover 按新默认 contain 读。 */
-  const size = ['contain', 'auto'].includes(value.size) ? value.size : fallback.size
+  /* 按比例铺满视口，超出部分裁掉。contain 和拉伸的旧值一律按 cover 读。auto 仍是原尺寸。 */
+  const size = value.size === 'auto' ? 'auto' : fallback.size
   const repeat = ['no-repeat', 'repeat', 'repeat-x', 'repeat-y'].includes(value.repeat)
     ? value.repeat
     : fallback.repeat
@@ -423,13 +640,32 @@ export const peekBackgroundSettings = (storage = globalThis.localStorage) => {
 
   return normalizeBackgroundSettings({
     ...parsed,
-    imageUrl: isStoredLocalImage(parsed) ? '' : pickStoredImageUrl(parsed)
+    imageUrl: isStoredLocalImage(parsed) || isRemoteHttpUrl(pickStoredImageUrl(parsed))
+      ? ''
+      : pickStoredImageUrl(parsed)
   })
 }
 
 /** 同步判断 localStorage 是否标记了一张存在 IndexedDB 的本地背景图 */
 export const hasStoredLocalBackgroundImage = (storage = globalThis.localStorage) =>
   isStoredLocalImage(readStoredPayload(storage))
+
+/** 远程壁纸已下载到本机。地址还在，但首帧不能拿它去发请求。 */
+export const hasCachedBackground = (storage = globalThis.localStorage) =>
+  isCachedRemote(readStoredPayload(storage))
+
+/**
+ * 首帧还拿不到能直接画的地址：本地图片在 IndexedDB，远程壁纸也先别把原地址写进页面。
+ * 启用时靠它保住「有背景」的卡片样式，同时避免刷新就去请求壁纸。
+ */
+export const hasDeferredBackground = (storage = globalThis.localStorage) => {
+  const parsed = readStoredPayload(storage)
+  if (!parsed || parsed.enabled === false) {
+    return false
+  }
+
+  return isStoredLocalImage(parsed) || isRemoteHttpUrl(pickStoredImageUrl(parsed))
+}
 
 /** 本地上传的图片或视频：字节在 IndexedDB，不能进同步 */
 export const isLocalBackgroundSource = (settings) => {
@@ -470,9 +706,12 @@ export const saveBackgroundSettings = async (
         await imageStore.clearVideo()
       }
     }
+    if (persisted.imageStorage === 'cache') {
+      await clearRemoteCache(imageStore)
+    }
 
     if (isQuotaError(error)) {
-      throw new Error('背景设置保存失败，存储空间不足。请改用图片地址或换一张更小的图片。')
+      throw new Error(QUOTA_FAILED)
     }
 
     throw error
@@ -489,6 +728,7 @@ export const clearBackgroundSettings = async (
   if (imageStore.clearVideo) {
     await imageStore.clearVideo()
   }
+  await clearRemoteCache(imageStore)
   /* 「清除背景」只该清掉图片，卡片尺寸这类显示偏好要留住 */
   return normalizeBackgroundSettings({ ...createDefaultBackgroundSettings(), ...preserve })
 }

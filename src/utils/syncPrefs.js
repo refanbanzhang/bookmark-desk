@@ -129,7 +129,7 @@ export const createSyncRecord = ({
     tabRadius: settings?.tabRadius,
     enabled: Boolean(settings?.enabled),
     position: settings?.position || 'center center',
-    size: settings?.size || 'contain',
+    size: settings?.size || 'cover',
     repeat: settings?.repeat || 'no-repeat',
     imageUrl,
     imageRev,

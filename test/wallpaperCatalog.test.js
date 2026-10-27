@@ -2,10 +2,16 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   WALLPAPER_CDN_SOURCES,
+  WALLPAPER_LIST_URL,
+  WALLPAPER_REF_URL,
+  catalogFromDirectory,
   inferMediaType,
   loadWallpaperCatalog,
   parseWallpaperCatalog,
-  wallpaperMediaUrl
+  sameWallpaper,
+  wallpaperMediaBase,
+  wallpaperMediaUrl,
+  wallpaperThumbsUrl
 } from '../src/utils/wallpaperCatalog.js'
 
 const JSDELIVR = WALLPAPER_CDN_SOURCES[0]
@@ -51,14 +57,24 @@ test('parses catalog items and skips entries without a path', () => {
   assert.equal(catalog.updatedAt, '2026-10-27T00:00:00.000Z')
   assert.equal(catalog.items.length, 3)
   assert.equal(catalog.items[0].url, `${JSDELIVR.mediaBase}wallpapers/${encodeURIComponent('夜山.jpg')}`)
-  assert.equal(catalog.items[0].thumbUrl, catalog.items[0].url)
+  assert.equal(
+    catalog.items[0].thumbUrl,
+    `${JSDELIVR.mediaBase}wallpapers/thumbs/${encodeURIComponent('夜山.webp')}`
+  )
+  assert.notEqual(catalog.items[0].thumbUrl, catalog.items[0].url)
   assert.equal(catalog.items[0].type, 'image')
-  assert.equal(catalog.items[1].type, 'video')
-  assert.equal(catalog.items[1].title, 'loop')
-  assert.equal(catalog.items[1].thumbUrl, catalog.items[1].url)
+  const loop = catalog.items.find((item) => item.name === 'loop.mp4')
+  assert.equal(loop.type, 'video')
+  assert.equal(loop.url, `${JSDELIVR.mediaBase}wallpapers/loop.mp4`)
+  assert.equal(loop.thumbUrl, `${JSDELIVR.mediaBase}wallpapers/thumbs/loop.webp`)
+  assert.notEqual(loop.thumbUrl, loop.url)
   assert.equal(catalog.items[2].title, 'plain')
   assert.equal(catalog.items[2].type, 'image')
-  assert.equal(catalog.items[2].thumbUrl, catalog.items[2].url)
+  assert.equal(
+    catalog.items[2].thumbUrl,
+    `${JSDELIVR.mediaBase}wallpapers/thumbs/plain.webp`
+  )
+  assert.notEqual(catalog.items[2].thumbUrl, catalog.items[2].url)
 })
 
 test('uses catalog thumb for gallery preview and keeps the full wallpaper url', () => {
@@ -88,7 +104,12 @@ test('uses catalog thumb for gallery preview and keeps the full wallpaper url', 
     JSDELIVR.mediaBase
   )
 
+  assert.equal(catalog.items.length, 4)
   const [night, mountain, loop, empty] = catalog.items
+  assert.equal(loop.type, 'video')
+  assert.equal(loop.url, `${JSDELIVR.mediaBase}wallpapers/loop.mp4`)
+  assert.equal(loop.thumbUrl, `${JSDELIVR.mediaBase}wallpapers/thumbs/loop.webp`)
+  assert.notEqual(loop.thumbUrl, loop.url)
 
   assert.equal(night.url, `${JSDELIVR.mediaBase}wallpapers/${encodeURIComponent('夜山.jpg')}`)
   assert.equal(
@@ -100,90 +121,160 @@ test('uses catalog thumb for gallery preview and keeps the full wallpaper url', 
     mountain.thumbUrl,
     `${JSDELIVR.mediaBase}wallpapers/thumbs/${encodeURIComponent('风景 - 自然山脉.webp')}`
   )
-  assert.equal(loop.url, `${JSDELIVR.mediaBase}wallpapers/loop.mp4`)
-  assert.equal(loop.thumbUrl, loop.url)
-  assert.equal(empty.thumbUrl, empty.url)
+  assert.equal(
+    empty.thumbUrl,
+    `${JSDELIVR.mediaBase}wallpapers/thumbs/empty.webp`
+  )
+  assert.notEqual(empty.thumbUrl, empty.url)
   assert.equal(empty.url, `${JSDELIVR.mediaBase}wallpapers/empty.jpg`)
 })
 
-test('loads jsDelivr first and falls back to GitHub raw', async () => {
-  const catalog = {
-    updatedAt: '2026-10-27T00:00:00.000Z',
-    items: [{ path: 'wallpapers/a.jpg', name: 'a.jpg', title: 'A', type: 'image', thumb: 'wallpapers/thumbs/a.webp' }]
-  }
+const SHA = 'a'.repeat(40)
+const directory = [
+  { type: 'file', name: 'index.json' },
+  { type: 'dir', name: 'thumbs' },
+  { type: 'file', name: '夜山.jpg' },
+  { type: 'file', name: 'loop.mp4' },
+  { type: 'file', name: 'notes.txt' }
+]
+const thumbs = [
+  { type: 'file', name: '夜山.webp' },
+  { type: 'file', name: 'loop.webp' }
+]
+
+const directoryFetch = (entries, { sha = SHA, thumbStatus = 200, refStatus = 200 } = {}) => {
   const seen = []
   const fetchImpl = async (url) => {
     seen.push(url)
-    if (url === JSDELIVR.catalogUrl) {
-      return jsonResponse({}, 404)
+    if (url === WALLPAPER_LIST_URL) {
+      return jsonResponse(entries)
     }
-    assert.equal(url, GITHUB.catalogUrl)
-    return jsonResponse(catalog)
-  }
-
-  const loaded = await loadWallpaperCatalog(fetchImpl)
-  assert.deepEqual(seen, [JSDELIVR.catalogUrl, GITHUB.catalogUrl])
-  assert.equal(loaded.items[0].url, `${GITHUB.mediaBase}wallpapers/a.jpg`)
-  assert.equal(loaded.items[0].thumbUrl, `${GITHUB.mediaBase}wallpapers/thumbs/a.webp`)
-})
-
-test('skips a stale jsDelivr catalog that has no thumb fields', async () => {
-  const stale = {
-    updatedAt: '2026-10-27T03:10:38Z',
-    items: [{ path: 'wallpapers/a.jpg', name: 'a.jpg', title: 'A', type: 'image' }]
-  }
-  const fresh = {
-    updatedAt: '2026-10-27T04:04:51Z',
-    items: [{
-      path: 'wallpapers/a.jpg',
-      name: 'a.jpg',
-      title: 'A',
-      type: 'image',
-      thumb: 'wallpapers/thumbs/a.webp'
-    }]
-  }
-  const seen = []
-  const fetchImpl = async (url) => {
-    seen.push(url)
-    if (url === JSDELIVR.catalogUrl) {
-      return jsonResponse(stale)
+    if (url === WALLPAPER_REF_URL) {
+      return jsonResponse({ object: { sha } }, refStatus)
     }
-    return jsonResponse(fresh)
+    if (url === wallpaperThumbsUrl(sha)) {
+      return jsonResponse(thumbs, thumbStatus)
+    }
+    throw new Error(`unexpected ${url}`)
   }
+  return { seen, fetchImpl }
+}
 
+test('builds the gallery from the wallpaper directory and ignores the old index', async () => {
+  const { seen, fetchImpl } = directoryFetch(directory)
   const loaded = await loadWallpaperCatalog(fetchImpl)
-  assert.deepEqual(seen, [JSDELIVR.catalogUrl, GITHUB.catalogUrl])
-  assert.equal(loaded.items[0].url, `${GITHUB.mediaBase}wallpapers/a.jpg`)
-  assert.equal(loaded.items[0].thumbUrl, `${GITHUB.mediaBase}wallpapers/thumbs/a.webp`)
+  const night = loaded.items.find((item) => item.name === '夜山.jpg')
+
+  assert.deepEqual(seen, [WALLPAPER_LIST_URL, WALLPAPER_REF_URL, wallpaperThumbsUrl(SHA)])
+  assert.equal(loaded.items.length, 2)
+  assert.equal(night.url, `${wallpaperMediaBase(SHA)}wallpapers/${encodeURIComponent('夜山.jpg')}`)
+  assert.equal(night.thumbUrl, `${wallpaperMediaBase(SHA)}wallpapers/thumbs/${encodeURIComponent('夜山.webp')}`)
+  const loop = loaded.items.find((item) => item.name === 'loop.mp4')
+  assert.equal(loop.type, 'video')
+  assert.equal(loop.url, `${wallpaperMediaBase(SHA)}wallpapers/loop.mp4`)
+  assert.equal(loop.thumbUrl, `${wallpaperMediaBase(SHA)}wallpapers/thumbs/loop.webp`)
+  assert.notEqual(loop.thumbUrl, loop.url)
+  assert.equal(loaded.items.some((item) => item.name === 'index.json'), false)
 })
 
-test('keeps jsDelivr when it already has thumb fields', async () => {
-  const seen = []
-  const loaded = await loadWallpaperCatalog(async (url) => {
-    seen.push(url)
-    return jsonResponse({
-      items: [{ path: 'wallpapers/a.jpg', type: 'image', thumb: 'wallpapers/thumbs/a.webp' }]
-    })
-  })
+test('a later directory listing adds and drops files without index.json', () => {
+  const before = catalogFromDirectory(
+    [{ type: 'file', name: '旧图.jpg' }, { type: 'file', name: '留下.jpg' }],
+    [{ type: 'file', name: '旧图.webp' }, { type: 'file', name: '留下.webp' }],
+    wallpaperMediaBase(SHA)
+  )
+  const after = catalogFromDirectory(
+    [{ type: 'file', name: '留下.jpg' }, { type: 'file', name: '新图.png' }],
+    [{ type: 'file', name: '留下.webp' }],
+    wallpaperMediaBase(SHA)
+  )
 
-  assert.deepEqual(seen, [JSDELIVR.catalogUrl])
-  assert.equal(loaded.items[0].thumbUrl, `${JSDELIVR.mediaBase}wallpapers/thumbs/a.webp`)
+  assert.deepEqual(before.items.map((item) => item.name), ['旧图.jpg', '留下.jpg'])
+  assert.deepEqual(after.items.map((item) => item.name), ['留下.jpg', '新图.png'])
+  assert.equal(
+    after.items[1].thumbUrl,
+    `${wallpaperMediaBase(SHA)}wallpapers/thumbs/${encodeURIComponent('新图.webp')}`
+  )
+  assert.notEqual(after.items[1].thumbUrl, after.items[1].url)
 })
 
-test('keeps the stale catalog when every host lacks thumbs', async () => {
-  const loaded = await loadWallpaperCatalog(async () => jsonResponse({
-    items: [{ path: 'wallpapers/a.jpg', type: 'image' }]
-  }))
-  assert.equal(loaded.items[0].url, `${JSDELIVR.mediaBase}wallpapers/a.jpg`)
-  assert.equal(loaded.items[0].thumbUrl, loaded.items[0].url)
-})
-
-test('returns an empty gallery when the catalog has no usable items', async () => {
-  const loaded = await loadWallpaperCatalog(async () => jsonResponse({ items: [] }))
+test('keeps an empty gallery when the directory itself is empty', async () => {
+  const { fetchImpl } = directoryFetch([])
+  const loaded = await loadWallpaperCatalog(fetchImpl)
   assert.deepEqual(loaded.items, [])
 })
 
-test('throws when every catalog host fails', async () => {
+test('still lists files when the commit lookup or thumbs folder fails', async () => {
+  const { fetchImpl } = directoryFetch(directory, { refStatus: 403, thumbStatus: 404, sha: SHA })
+  const loaded = await loadWallpaperCatalog(async (url) => {
+    if (url === WALLPAPER_REF_URL) {
+      return jsonResponse({}, 403)
+    }
+    if (url === wallpaperThumbsUrl(SHA) || url === wallpaperThumbsUrl('main')) {
+      return jsonResponse({}, 404)
+    }
+    return fetchImpl(url)
+  })
+
+  assert.equal(loaded.items.length, 2)
+  const night = loaded.items.find((item) => item.name === '夜山.jpg')
+  assert.equal(night.url.startsWith(wallpaperMediaBase()), true)
+  assert.equal(night.thumbUrl, `${wallpaperMediaBase()}wallpapers/thumbs/${encodeURIComponent('夜山.webp')}`)
+  assert.notEqual(night.thumbUrl, night.url)
+  const loop = loaded.items.find((item) => item.name === 'loop.mp4')
+  assert.equal(loop.type, 'video')
+  assert.equal(loop.thumbUrl, `${wallpaperMediaBase()}wallpapers/thumbs/loop.webp`)
+  assert.notEqual(loop.thumbUrl, loop.url)
+})
+
+test('falls back to GitHub raw index.json when the directory API fails', async () => {
+  const seen = []
+  const loaded = await loadWallpaperCatalog(async (url) => {
+    seen.push(url)
+    if (url === WALLPAPER_LIST_URL || url === WALLPAPER_REF_URL) {
+      return jsonResponse({}, 403)
+    }
+    if (url === GITHUB.catalogUrl) {
+      return jsonResponse({
+        items: [{ path: 'wallpapers/a.jpg', type: 'image', thumb: 'wallpapers/thumbs/a.webp' }]
+      })
+    }
+    throw new Error(`unexpected ${url}`)
+  })
+
+  assert.deepEqual(seen, [WALLPAPER_LIST_URL, WALLPAPER_REF_URL, GITHUB.catalogUrl])
+  assert.equal(loaded.items[0].url, `${GITHUB.mediaBase}wallpapers/a.jpg`)
+  assert.equal(loaded.items[0].thumbUrl, `${GITHUB.mediaBase}wallpapers/thumbs/a.webp`)
+})
+
+test('uses jsDelivr index.json only after GitHub raw also fails', async () => {
+  const seen = []
+  const loaded = await loadWallpaperCatalog(async (url) => {
+    seen.push(url)
+    if (url === JSDELIVR.catalogUrl) {
+      return jsonResponse({ items: [{ path: 'wallpapers/a.jpg', type: 'image' }] })
+    }
+    return jsonResponse({}, 503)
+  })
+
+  assert.deepEqual(seen, [WALLPAPER_LIST_URL, WALLPAPER_REF_URL, GITHUB.catalogUrl, JSDELIVR.catalogUrl])
+  assert.equal(loaded.items[0].url, `${JSDELIVR.mediaBase}wallpapers/a.jpg`)
+})
+
+test('matches a saved wallpaper across commit and branch urls', () => {
+  const item = {
+    path: 'wallpapers/夜山.jpg',
+    url: `${wallpaperMediaBase(SHA)}wallpapers/${encodeURIComponent('夜山.jpg')}`
+  }
+  const saved = `${JSDELIVR.mediaBase}wallpapers/${encodeURIComponent('夜山.jpg')}`
+
+  assert.equal(sameWallpaper(saved, item), true)
+  assert.equal(sameWallpaper(item.url, item), true)
+  assert.equal(sameWallpaper(`${JSDELIVR.mediaBase}wallpapers/other.jpg`, item), false)
+  assert.equal(sameWallpaper('not a url', item), false)
+})
+
+test('throws when the directory API and both index hosts fail', async () => {
   await assert.rejects(
     () => loadWallpaperCatalog(async () => jsonResponse({}, 503)),
     /预设壁纸目录加载失败/

@@ -1,0 +1,13 @@
+---
+description: 预设壁纸画廊只显示缩略图，不加载原图
+globs: src/components/BackgroundSettingsDialog.vue,src/utils/wallpaperCatalog.js,src/styles/components.css,test/wallpaper*.test.js,test/backgroundSettings.test.js
+alwaysApply: false
+---
+
+# 预设壁纸画廊用缩略图
+
+预设壁纸画廊的预览必须用缩略图（`wallpapers/thumbs/`，条目的 `thumb` / `thumbUrl`）。画廊 `<img>` 的 `src` 只能是缩略图地址。
+
+选中、下载、设为背景仍用完整壁纸的 `path` / `url`。原图只在用户选定之后加载。
+
+没有显式缩略图时，按同名 `.webp` 生成 `thumbUrl`。不要把 `thumbUrl` 指回原图 `url`。视频同样只预览缩略图，不要把视频文件塞进画廊。

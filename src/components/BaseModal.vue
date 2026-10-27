@@ -41,7 +41,9 @@ const emit = defineEmits(['close'])
         </button>
       </div>
 
-      <slot />
+      <div class="modal__body">
+        <slot />
+      </div>
 
       <div v-if="$slots.footer" class="modal__foot">
         <slot name="footer" />

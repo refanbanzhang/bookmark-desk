@@ -17,15 +17,21 @@ const block = (source, selector) => {
 test('gallery tiles keep thumb previews and hide wallpaper titles', () => {
   assert.equal(dialog.includes('gallery-name'), false)
   assert.match(dialog, /:src="item\.thumbUrl"/)
-  assert.match(dialog, /@click="selectPresetWallpaper\(item\)"/)
+  assert.match(dialog, /@click="downloadPresetWallpaper\(item\)"/)
+  assert.match(dialog, /gallery-loading/)
+  assert.equal(dialog.includes('<video'), false)
+  assert.equal(dialog.includes('item.url'), false)
+  assert.equal(dialog.includes('galleryPreview'), false)
   assert.match(dialog, /:title="item\.title"/)
 })
 
-test('gallery thumbs contain the full subject and do not clip the frame', () => {
+test('gallery thumbs fill a 16:9 card instead of sitting in a gray mat', () => {
   const item = block(css, '.gallery-item')
   const thumb = block(css, '.gallery-thumb')
 
-  assert.doesNotMatch(item, /overflow:\s*hidden/)
-  assert.match(thumb, /object-fit:\s*contain/)
-  assert.match(thumb, /aspect-ratio:\s*4\s*\/\s*3/)
+  assert.match(item, /overflow:\s*hidden/)
+  assert.match(item, /aspect-ratio:\s*16\s*\/\s*9/)
+  assert.match(thumb, /object-fit:\s*cover/)
+  assert.match(thumb, /height:\s*100%/)
+  assert.doesNotMatch(thumb, /object-fit:\s*contain/)
 })

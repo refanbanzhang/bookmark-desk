@@ -41,7 +41,6 @@ const { query, isSearching, results, clearQuery } = useBookmarkSearch()
 const { recentNodes } = useRecentVisits()
 const {
   hasBackgroundImage,
-  hasBackgroundVideo,
   backdropImageUrl,
   backdropVideoUrl,
   backdropStyle,
@@ -49,7 +48,8 @@ const {
   initBackgroundSettings,
   backgroundSettingsOpen,
   closeBackgroundSettings,
-  releaseBackgroundVideo
+  releaseBackgroundVideo,
+  handleBackdropVideoError
 } = useBackgroundImage()
 const backdropEl = ref(null)
 
@@ -208,7 +208,8 @@ onUnmounted(() => {
       aria-hidden="true"
     >
       <video
-        v-if="hasBackgroundVideo"
+        v-if="backdropVideoUrl"
+        :key="backdropVideoUrl"
         class="page-backdrop__video"
         :src="backdropVideoUrl"
         autoplay
@@ -216,6 +217,7 @@ onUnmounted(() => {
         muted
         playsinline
         aria-hidden="true"
+        @error="handleBackdropVideoError"
       ></video>
     </div>
 

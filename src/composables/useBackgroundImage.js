@@ -1,13 +1,19 @@
 import { computed, ref } from 'vue'
 import {
+  cacheRemoteBackground,
   cardSizeStyle,
+  clearStagedBackground,
   createDefaultBackgroundSettings,
+  downloadBackgroundBlob,
   fontFamilyStack,
-  hasStoredLocalBackgroundImage,
+  hasDeferredBackground,
+  isRemoteBackgroundUrl,
   loadBackgroundSettings,
   normalizeBackgroundSettings,
   peekBackgroundSettings,
-  saveBackgroundSettings
+  readCachedBackground,
+  saveBackgroundSettings,
+  stageRemoteBackground
 } from '../utils/backgroundSettings'
 import { inferMediaType } from '../utils/wallpaperCatalog'
 import { ensureWebfonts } from '../utils/webfonts'
@@ -19,10 +25,15 @@ const backgroundSettingsOpen = ref(false)
 const backgroundError = ref('')
 const backgroundFileInput = ref(null)
 /* 上传图片的字节在 IndexedDB，首帧只同步拿得到「有没有图」。样式靠它才不会先按无背景图画一遍 */
-const pendingLocalImage = ref(hasStoredLocalBackgroundImage())
+const pendingLocalImage = ref(hasDeferredBackground())
 let activeVideoObjectUrl = ''
 let draftVideoObjectUrl = ''
 const videoDraftFile = ref(null)
+const wallpaperDownloadPath = ref('')
+let cachedObjectUrl = ''
+let cachedMediaSource = ''
+const cachedMediaUrl = ref('')
+let backgroundEpoch = 0
 
 const readFileAsDataUrl = (file) =>
   new Promise((resolve, reject) => {
@@ -31,6 +42,37 @@ const readFileAsDataUrl = (file) =>
     reader.onerror = () => reject(reader.error || new Error('读取图片失败。'))
     reader.readAsDataURL(file)
   })
+
+const releaseCachedMedia = () => {
+  if (cachedObjectUrl) {
+    URL.revokeObjectURL(cachedObjectUrl)
+    cachedObjectUrl = ''
+  }
+  cachedMediaSource = ''
+  cachedMediaUrl.value = ''
+}
+
+const adoptCachedMedia = (source, blob) => {
+  if (cachedMediaSource === source && cachedObjectUrl) {
+    return
+  }
+  releaseCachedMedia()
+  cachedObjectUrl = URL.createObjectURL(blob)
+  cachedMediaSource = source
+  cachedMediaUrl.value = cachedObjectUrl
+}
+
+/** 本机已有这份文件才拿来画。远程地址留着同步，不在这里触发下载。 */
+const displayUrl = (settings) => {
+  const url = typeof settings.imageUrl === 'string' ? settings.imageUrl : ''
+  if (url && url === cachedMediaSource && cachedMediaUrl.value) {
+    return cachedMediaUrl.value
+  }
+  if (isRemoteBackgroundUrl(url)) {
+    return ''
+  }
+  return url
+}
 
 /**
  * 背景图：地址 / 本地上传 / 启用 / 卡片不透明度。
@@ -50,21 +92,15 @@ export const useBackgroundImage = () => {
     return settings.enabled && Boolean(settings.imageUrl || pending)
   })
 
-  const hasBackgroundVideo = computed(() =>
-    hasBackgroundImage.value && previewSettings.value.mediaType === 'video'
-  )
-
-  /* 背景资源地址与其余样式分开暴露：本地上传的图片是数百万字符的 data URL，
-     挂在 :style 上会被 Vue 在组件每次重渲染时整串重写（拖滑块每个事件都要重来一次，
-     一次几十毫秒）。调用方只在它真的变化时写到元素上。 */
   const backdropImageUrl = computed(() => {
     const settings = previewSettings.value
     /* 本地图片的真身还没读回来时没有地址可用，先不铺背景，免得去请求一个空地址 */
-    if (settings.mediaType !== 'image' || !settings.enabled || !settings.imageUrl) {
+    const url = displayUrl(settings)
+    if (settings.mediaType !== 'image' || !settings.enabled || !url) {
       return ''
     }
 
-    return `url(${JSON.stringify(settings.imageUrl)})`
+    return `url(${JSON.stringify(url)})`
   })
 
   const backdropStyle = computed(() => {
@@ -82,9 +118,8 @@ export const useBackgroundImage = () => {
 
   const backdropVideoUrl = computed(() => {
     const settings = previewSettings.value
-    return settings.mediaType === 'video' && settings.enabled && typeof settings.imageUrl === 'string'
-      ? settings.imageUrl
-      : ''
+    const url = displayUrl(settings)
+    return settings.mediaType === 'video' && settings.enabled && url ? url : ''
   })
 
   const releaseDraftVideo = () => {
@@ -110,23 +145,57 @@ export const useBackgroundImage = () => {
   }))
 
   const initBackgroundSettings = async () => {
-    backgroundSettings.value = await loadBackgroundSettings()
-    if (
-      backgroundSettings.value.mediaType === 'video' &&
-      typeof backgroundSettings.value.imageUrl === 'string' &&
-      backgroundSettings.value.imageUrl.startsWith('blob:')
-    ) {
-      activeVideoObjectUrl = backgroundSettings.value.imageUrl
+    const ticket = backgroundEpoch
+    const settings = await loadBackgroundSettings()
+    if (ticket !== backgroundEpoch) {
+      return
     }
+
+    const remote = isRemoteBackgroundUrl(settings.imageUrl)
+    let cached = null
+    if (remote) {
+      try {
+        cached = await readCachedBackground(settings.imageUrl)
+      } catch (error) {
+        console.error('[background] 读取本地壁纸失败', error)
+      }
+    }
+
+    if (cached) {
+      adoptCachedMedia(settings.imageUrl, cached)
+    } else if (!remote) {
+      releaseCachedMedia()
+    }
+
+    if (
+      settings.mediaType === 'video' &&
+      typeof settings.imageUrl === 'string' &&
+      settings.imageUrl.startsWith('blob:')
+    ) {
+      activeVideoObjectUrl = settings.imageUrl
+    }
+    backgroundSettings.value = settings
     pendingLocalImage.value = false
-    ensureWebfonts([backgroundSettings.value.cjkFont])
-    rememberPrefs(backgroundSettings.value)
+    ensureWebfonts([settings.cjkFont])
+    rememberPrefs(settings)
+    console.info('[background] 壁纸就绪', {
+      mediaType: settings.mediaType,
+      enabled: settings.enabled,
+      remote,
+      cached: Boolean(cached),
+      blobType: cached?.type || '',
+      blobSize: cached?.size || 0
+    })
   }
 
   const persistBackgroundSettings = async (nextSettings, options = {}) => {
     const syncDraft = options.syncDraft !== false
     const publish = options.publish !== false
+    const ticket = ++backgroundEpoch
     const saved = await saveBackgroundSettings(nextSettings)
+    if (ticket !== backgroundEpoch) {
+      return saved
+    }
     const runtimeSettings = { ...saved }
     if (runtimeSettings.mediaType === 'video' && runtimeSettings.imageUrl instanceof Blob) {
       if (activeVideoObjectUrl) {
@@ -137,6 +206,26 @@ export const useBackgroundImage = () => {
     } else if (activeVideoObjectUrl) {
       URL.revokeObjectURL(activeVideoObjectUrl)
       activeVideoObjectUrl = ''
+    }
+    if (isRemoteBackgroundUrl(runtimeSettings.imageUrl)) {
+      try {
+        const blob = await cacheRemoteBackground(runtimeSettings.imageUrl)
+        if (ticket !== backgroundEpoch) {
+          return saved
+        }
+        adoptCachedMedia(runtimeSettings.imageUrl, blob)
+      } catch (error) {
+        if (ticket !== backgroundEpoch) {
+          return saved
+        }
+        console.error('[background] 壁纸保存到本机失败', error)
+        releaseCachedMedia()
+      }
+    } else {
+      releaseCachedMedia()
+    }
+    if (ticket !== backgroundEpoch) {
+      return saved
     }
     releaseDraftVideo()
     backgroundSettings.value = runtimeSettings
@@ -182,6 +271,22 @@ export const useBackgroundImage = () => {
     releaseDraftVideo()
     backgroundSettingsOpen.value = false
     backgroundError.value = ''
+    wallpaperDownloadPath.value = ''
+    clearStagedBackground()
+    const url = backgroundSettings.value.imageUrl
+    if (!isRemoteBackgroundUrl(url)) {
+      return
+    }
+    void readCachedBackground(url).then((blob) => {
+      if (backgroundSettingsOpen.value) {
+        return
+      }
+      if (blob) {
+        adoptCachedMedia(url, blob)
+      } else {
+        releaseCachedMedia()
+      }
+    })
   }
 
   const saveBackgroundSettingsForm = async () => {
@@ -237,12 +342,67 @@ export const useBackgroundImage = () => {
     backgroundError.value = ''
   }
 
+  const downloadPresetWallpaper = async (item) => {
+    const url = typeof item?.url === 'string' ? item.url.trim() : ''
+    const path = typeof item?.path === 'string' ? item.path : ''
+    if (!url || wallpaperDownloadPath.value) {
+      if (!url) {
+        backgroundError.value = '预设壁纸地址无效。'
+      }
+      return
+    }
+
+    backgroundError.value = ''
+    const mark = path || url
+    try {
+      const cached = await readCachedBackground(url)
+      if (cached) {
+        adoptCachedMedia(url, cached)
+        selectPresetWallpaper(item)
+        return
+      }
+
+      wallpaperDownloadPath.value = mark
+      const blob = await downloadBackgroundBlob(url)
+      if (!backgroundSettingsOpen.value || wallpaperDownloadPath.value !== mark) {
+        return
+      }
+      stageRemoteBackground(url, blob)
+      adoptCachedMedia(url, blob)
+      selectPresetWallpaper(item)
+      console.info('[background] 壁纸已下载', { blobType: blob?.type || '', blobSize: blob?.size || 0 })
+    } catch (error) {
+      console.error('[background] 壁纸保存到本机失败', error)
+      backgroundError.value = error instanceof Error ? error.message : 'error.bg.download'
+    } finally {
+      wallpaperDownloadPath.value = ''
+    }
+  }
+
   const triggerBackgroundUpload = () => {
     backgroundFileInput.value?.click?.()
   }
 
+  const handleBackdropVideoError = (event) => {
+    const video = event?.currentTarget
+    const currentSrc = typeof video?.currentSrc === 'string' ? video.currentSrc : ''
+    console.error('[background] 视频壁纸无法播放', {
+      code: video?.error?.code,
+      message: video?.error?.message,
+      src: currentSrc.slice(0, 160),
+      networkState: video?.networkState,
+      readyState: video?.readyState,
+      blobType: cachedMediaSource ? 'cached' : ''
+    })
+    if (currentSrc && currentSrc === cachedMediaUrl.value && isRemoteBackgroundUrl(backgroundSettings.value.imageUrl)) {
+      console.error('[background] 本地视频播不了，改回远程地址')
+      releaseCachedMedia()
+    }
+  }
+
   const releaseBackgroundVideo = () => {
     releaseDraftVideo()
+    releaseCachedMedia()
     if (activeVideoObjectUrl) {
       URL.revokeObjectURL(activeVideoObjectUrl)
       activeVideoObjectUrl = ''
@@ -290,7 +450,6 @@ export const useBackgroundImage = () => {
     backgroundFileInput,
     previewSettings,
     hasBackgroundImage,
-    hasBackgroundVideo,
     backdropImageUrl,
     backdropVideoUrl,
     backdropStyle,
@@ -302,8 +461,11 @@ export const useBackgroundImage = () => {
     saveBackgroundSettingsForm,
     clearBackgroundImage,
     selectPresetWallpaper,
+    downloadPresetWallpaper,
+    wallpaperDownloadPath,
     triggerBackgroundUpload,
     handleBackgroundUpload,
+    handleBackdropVideoError,
     releaseBackgroundVideo
   }
 }

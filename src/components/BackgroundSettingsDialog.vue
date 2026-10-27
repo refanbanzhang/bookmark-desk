@@ -6,7 +6,7 @@ import {
   CJK_FONT_PRESETS,
   LATIN_FONT_PRESETS
 } from '../utils/backgroundSettings'
-import { loadWallpaperCatalog } from '../utils/wallpaperCatalog'
+import { loadWallpaperCatalog, sameWallpaper } from '../utils/wallpaperCatalog'
 import { ensureWebfonts } from '../utils/webfonts'
 import { useBackgroundImage } from '../composables/useBackgroundImage'
 import BaseModal from './BaseModal.vue'
@@ -20,6 +20,8 @@ const {
   saveBackgroundSettingsForm,
   clearBackgroundImage,
   selectPresetWallpaper,
+  downloadPresetWallpaper,
+  wallpaperDownloadPath,
   triggerBackgroundUpload,
   handleBackgroundUpload
 } = useBackgroundImage()
@@ -50,7 +52,7 @@ const loadGallery = async () => {
 }
 
 const isSelectedWallpaper = (item) =>
-  backgroundDraft.value.enabled && backgroundDraft.value.imageUrl === item.url
+  backgroundDraft.value.enabled && sameWallpaper(backgroundDraft.value.imageUrl, item)
 
 /* 各档中文字族的样式表在选中前不会加载，所以打开面板时统一注入，
    每颗按钮才能用自己的字形当预览——这几十 KB 只在面板打开时才花 */
@@ -123,6 +125,21 @@ watch(backgroundSettingsOpen, (open) => {
           </option>
         </select>
       </div>
+
+      <label class="field">
+        <span class="field__label">{{ t('settings.opacity') }}</span>
+        <div class="range">
+          <input
+            v-model.number="backgroundDraft.cardOpacity"
+            class="range__input"
+            type="range"
+            min="0.2"
+            max="1"
+            step="0.01"
+          />
+          <output class="range__value">{{ Math.round(backgroundDraft.cardOpacity * 100) }}%</output>
+        </div>
+      </label>
     </section>
 
     <section class="settings-group">
@@ -155,46 +172,25 @@ watch(backgroundSettingsOpen, (open) => {
             v-for="item in wallpapers"
             :key="item.path"
             class="gallery-item"
-            :class="{ 'is-on': isSelectedWallpaper(item) }"
+            :class="{ 'is-on': isSelectedWallpaper(item), 'is-busy': wallpaperDownloadPath === item.path }"
             type="button"
             :title="item.title"
-            @click="selectPresetWallpaper(item)"
+            :disabled="Boolean(wallpaperDownloadPath)"
+            @click="downloadPresetWallpaper(item)"
           >
             <img
-              v-if="item.type === 'image'"
+              v-if="item.thumbUrl"
               class="gallery-thumb"
               :src="item.thumbUrl"
               :alt="item.title"
               loading="lazy"
               decoding="async"
             />
-            <video
-              v-else
-              class="gallery-thumb"
-              :src="item.url"
-              muted
-              preload="metadata"
-              playsinline
-            />
             <span v-if="item.type === 'video'" class="gallery-tag">{{ t('settings.videoTag') }}</span>
+            <span v-if="wallpaperDownloadPath === item.path" class="gallery-loading">{{ t('settings.downloading') }}</span>
           </button>
         </div>
       </div>
-
-      <label class="field">
-        <span class="field__label">{{ t('settings.opacity') }}</span>
-        <div class="range">
-          <input
-            v-model.number="backgroundDraft.cardOpacity"
-            class="range__input"
-            type="range"
-            min="0.2"
-            max="1"
-            step="0.01"
-          />
-          <output class="range__value">{{ Math.round(backgroundDraft.cardOpacity * 100) }}%</output>
-        </div>
-      </label>
     </section>
 
     <em v-if="backgroundError" class="field__error">{{ text(backgroundError) }}</em>

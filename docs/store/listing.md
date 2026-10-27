@@ -58,21 +58,41 @@ Bookmark Desk 把 Chrome 的新标签页换成你自己的书签台：不再显�
 · 目录 Tab：文件夹在顶部成 Tab，可拖动换位；把书签拖到 Tab 或目录卡上即可移入
 · 拖动整理：拖书签调顺序、拖目录换位、拖到文件夹即移入，调整立刻同步回 Chrome 书签
 · 右键菜单：直接重命名或删除书签与文件夹（删除文件夹有二次确认）
-· 背景与主题：默认提供公开预设壁纸图库（图片与视频），也可上传本地图片或 MP4；卡片不透明度可调；浅色/深色跟随系统
+· 背景与主题：默认提供公开预设壁纸图库（图片），也可上传本地图片或 MP4；卡片不透明度可调；浅色/深色跟随系统
 · 字体可选：多种西文与中文字体，选择会持久化
 · 图标本地取：网站图标读 Chrome 本地缓存，不向第三方图标服务发起请求
 · 一键导出备份：下载一个 HTML 文件，书签可被 Chrome 导入；本机显示设置、本地背景和目录密码哈希附在同一文件里，只保存在你的电脑上
 
-核心逻辑打包在扩展内，不收集、不上传书签和设置。预设壁纸目录与媒体从 jsDelivr 上的公开
-cdn-images 仓库加载；字体样式会从 Google Fonts 加载；选择 MiSans 或鸿蒙字体时，还会按需
-从 jsDelivr 加载字体样式。网络不可用时预设图库显示失败提示，仍可上传本地背景，字体回退到系统字体。
+核心逻辑打包在扩展内，不收集、不上传书签和设置。预设壁纸列表读取公开 cdn-images 仓库的
+wallpapers 目录（api.github.com）。选中一张图片后，文件会下载到本机，之后从本机打开，不再每次重新请求；
+字体样式会从 Google Fonts 加载；选择 MiSans 或鸿蒙字体时，还会按需从 jsDelivr 加载字体样式。
+网络不可用时预设图库显示失败提示，仍可上传本地背景；已经下载过的壁纸不受影响，字体回退到系统字体。
 ```
 
 ### 英文（可选，填了会给非中文语言环境展示）
 
 ```
-Name: Bookmark Start Page
-Summary: Turn Chrome's new tab into a tidy grid of your bookmarks, organized by folder.
+Name: Bookmark Desk
+Summary: Turn Chrome's new tab into a tidy bookmark grid—folders as cards, drag to organize, pick a preset or local wallpaper.
+```
+
+详细说明（英文）：
+
+```
+Bookmark Desk replaces Chrome's new tab with your own bookmark desk: open a tab and see the sites you use most, arranged by folder.
+
+Key features
+· Folder cards: each bookmark folder becomes a card you can open into
+· Even grid: top-level folders and loose bookmarks share the same card size (four size presets)
+· Folder tabs: drag tabs to reorder; drop a bookmark onto a tab or folder card to move it
+· Drag to organize: reorder bookmarks, move folders, drop into folders—changes sync back to Chrome bookmarks
+· Context menu: rename or delete bookmarks and folders (folder delete asks for confirmation)
+· Background & theme: preset wallpaper gallery lists the public cdn-images wallpapers folder (images). The one you pick is downloaded to this computer and then opened locally; or upload a local image/MP4. Card opacity is adjustable; light/dark follows the system
+· Fonts: several Latin and Chinese fonts, preferences persist
+· Local favicons: icons come from Chrome's local cache—no third-party icon service
+· One-click export: download an HTML backup Chrome can import; display settings, local background, and folder password hashes stay on your computer
+
+Core logic ships inside the extension. Bookmarks and settings are not collected or uploaded. The preset wallpaper list is the public refanbanzhang/cdn-images wallpapers folder, read from api.github.com. The selected image is downloaded once and kept on this computer; later visits open that local copy. Font styles may load from Google Fonts (and MiSans / HarmonyOS fonts from jsDelivr when selected). If the network is down, the gallery shows an error and you can still upload a local background; a wallpaper already downloaded keeps working, and fonts fall back to system fonts.
 ```
 
 ## 四、隐私权规范（逐项照填）
@@ -90,9 +110,11 @@ Summary: Turn Chrome's new tab into a tidy grid of your bookmarks, organized by 
 |---|---|
 | `bookmarks` | 读取用户的书签树，用于在新标签页渲染目录卡片与书签卡片；仅在用户主动重命名、删除或拖动整理时写回书签数据。不读取、不上传任何其他浏览数据。 |
 | `favicon` | 读取 Chrome 本地已缓存的网站图标，用于展示书签卡片上的站点图标。图标取自本机缓存，不会向任何第三方服务器发起请求。 |
-| `storage` | 通过 Chrome 同步在同一账号的设备之间同步显示偏好：主题、卡片尺寸、字体、不透明度、圆角，以及背景开关、位置、缩放、平铺和 http/https 背景图地址（含用户选中的预设壁纸地址）。本地上传的图片和视频、目录密码、当前目录不会同步。 |
-| 主机权限 `cdn.jsdelivr.net` | 读取公开预设壁纸目录 `wallpapers/index.json` 及其中的图片/视频，并按需加载 MiSans / 鸿蒙字体样式。这些请求不携带书签或本机设置。用户仍可只使用本地上传。 |
-| 主机权限 `raw.githubusercontent.com` | 当 jsDelivr 不可用时，回退读取同一份公开 cdn-images 仓库中的预设壁纸目录与媒体。不读取任何私有仓库或用户数据。 |
+| `storage` | 通过 Chrome 同步在同一账号的设备之间同步显示偏好：主题、卡片尺寸、字体、不透明度、圆角，以及背景开关、位置、缩放、平铺和 http/https 背景图地址（含用户选中的预设壁纸地址）。本地上传的图片和视频、已经下载到本机的预设壁纸文件、目录密码、当前目录不会同步。 |
+| `unlimitedStorage` | 选中的预设图片会整份保存到本机 IndexedDB，本地上传的视频可能超过扩展的默认存储配额。该权限只放宽本机存储上限，不读取、不上传任何数据。 |
+| 主机权限 `api.github.com` | 打开显示设置时，读取公开仓库 `refanbanzhang/cdn-images` 的 `wallpapers` 目录文件名，用来生成预设壁纸列表。不读取私有仓库，不携带书签或本机设置。 |
+| 主机权限 `cdn.jsdelivr.net` | 打开显示设置时加载预设壁纸预览；用户选中一张图片时把它下载到本机。已下载的文件之后从本机读取。并按需加载 MiSans / 鸿蒙字体样式。这些请求不携带书签或本机设置。用户仍可只使用本地上传。 |
+| 主机权限 `raw.githubusercontent.com` | 当 GitHub 目录接口不可用时，回退读取同一公开仓库的 `wallpapers/index.json`。不读取任何私有仓库或用户数据。 |
 
 ### 数据使用
 
@@ -100,8 +122,8 @@ Summary: Turn Chrome's new tab into a tidy grid of your bookmarks, organized by 
 |---|---|
 | 是否收集用户数据 | 否（不上传、不共享、不出售） |
 | 书签数据 | 仅在本机内存中读取用于渲染。用户点击「导出备份」时，书签与本机设置下载为一个本地 HTML 文件，不上传。 |
-| 设置与背景图 | 显示偏好经 Chrome 同步跟随登录账号；选中的预设壁纸只同步其公开 http/https 地址。本地上传的图片和视频仍只存在本机 IndexedDB。目录密码只存在本机。不上传书签数据。 |
-| 网络请求 | 核心功能不依赖网络。打开显示设置时会从 jsDelivr（失败则回退 GitHub raw）读取公开预设壁纸目录，选中后由页面加载对应图片或视频。页面还会加载 Google Fonts 字体样式，选择 MiSans 或鸿蒙字体时会按需加载 jsDelivr 字体样式。用户仍可上传本地图片/MP4，不依赖该目录。用户主动打开书签时，浏览器会导航到该书签地址。 |
+| 设置与背景图 | 显示偏好经 Chrome 同步跟随登录账号；选中的预设壁纸只同步其公开 http/https 地址。壁纸文件下载到本机 IndexedDB，本地上传的图片和视频也只存在本机。目录密码只存在本机。不上传书签数据。 |
+| 网络请求 | 核心功能不依赖网络。打开显示设置时会从 jsDelivr（失败则回退 GitHub raw）读取公开预设壁纸目录。选中一张预设图片时下载一次并存入本机，之后从本机读取。页面还会加载 Google Fonts 字体样式，选择 MiSans 或鸿蒙字体时会按需加载 jsDelivr 字体样式。用户仍可上传本地图片/MP4，不依赖该目录。用户主动打开书签时，浏览器会导航到该书签地址。 |
 | 是否使用远程代码 | 否，全部逻辑打包在扩展内 |
 | 隐私政策 URL | `[你的隐私政策页地址]`（模板见同目录 privacy-policy.html，必须部署成公开 HTTPS 地址） |
 

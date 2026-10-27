@@ -8,15 +8,20 @@ import {
   DEFAULT_CJK_FONT,
   DEFAULT_LATIN_FONT,
   LATIN_FONT_PRESETS,
+  cacheRemoteBackground,
   cardSizeStyle,
   clearBackgroundSettings,
   createDefaultBackgroundSettings,
+  downloadBackgroundBlob,
   fontFamilyStack,
+  hasCachedBackground,
+  hasDeferredBackground,
   hasStoredLocalBackgroundImage,
   isLocalBackgroundSource,
   loadBackgroundSettings,
   normalizeBackgroundSettings,
   peekBackgroundSettings,
+  rememberCachedBackground,
   saveBackgroundSettings
 } from '../src/utils/backgroundSettings.js'
 
@@ -34,9 +39,14 @@ const createMemoryStorage = (initial = {}) => {
   }
 }
 
-const createImageStore = (initial = '') => {
+const createImageStore = (initial = '', options = {}) => {
   let imageUrl = initial
   let video = null
+  let cache = null
+  let fetches = 0
+  const fetchBlob = options.fetchBlob || new Blob(['remote'], { type: 'image/jpeg' })
+  const fetchError = options.fetchError || null
+  const cacheWrites = options.cacheWrites !== false
   return {
     getImageUrl: async () => imageUrl,
     setImageUrl: async (nextImageUrl) => {
@@ -56,8 +66,26 @@ const createImageStore = (initial = '') => {
       video = null
       return true
     },
+    getCached: async (source) => (cache?.source === source ? cache.blob : null),
+    setCached: async (source, blob) => {
+      cache = { source, blob }
+      return cacheWrites
+    },
+    clearCached: async () => {
+      cache = null
+      return true
+    },
+    fetchRemote: async () => {
+      fetches += 1
+      if (fetchError) {
+        throw fetchError
+      }
+      return fetchBlob
+    },
     peek: () => imageUrl,
-    peekVideo: () => video
+    peekVideo: () => video,
+    peekCache: () => cache,
+    fetches: () => fetches
   }
 }
 
@@ -84,7 +112,7 @@ test('normalizes background settings and keeps image-enabled state', () => {
     cardRadius: 28,
     tabRadius: 28,
     position: 'center center',
-    size: 'contain',
+    size: 'cover',
     repeat: 'repeat-x'
   })
 })
@@ -124,15 +152,17 @@ test('loads defaults for missing or invalid data', async () => {
     cardRadius: 12,
     tabRadius: 10,
     position: 'center center',
-    size: 'contain',
+    size: 'cover',
     repeat: 'no-repeat'
   })
 })
 
-test('legacy cover size becomes contain so stored wallpapers are not cropped', () => {
-  assert.equal(normalizeBackgroundSettings({ size: 'cover' }).size, 'contain')
-  assert.equal(normalizeBackgroundSettings({}).size, 'contain')
-  assert.equal(createDefaultBackgroundSettings().size, 'contain')
+test('wallpaper size covers the viewport', () => {
+  assert.equal(normalizeBackgroundSettings({ size: 'cover' }).size, 'cover')
+  assert.equal(normalizeBackgroundSettings({ size: 'contain' }).size, 'cover')
+  assert.equal(normalizeBackgroundSettings({ size: '100% 100%' }).size, 'cover')
+  assert.equal(normalizeBackgroundSettings({}).size, 'cover')
+  assert.equal(createDefaultBackgroundSettings().size, 'cover')
   assert.equal(normalizeBackgroundSettings({ size: 'auto' }).size, 'auto')
 })
 
@@ -142,12 +172,15 @@ test('saves normalized settings and clears them', async () => {
   const saved = await saveBackgroundSettings({ imageUrl: 'https://example.com/bg.png', enabled: false }, storage, imageStore)
 
   assert.equal(saved.enabled, false)
-  assert.equal(storage.dump()[BACKGROUND_SETTINGS_KEY], JSON.stringify({ ...saved, imageStorage: '' }))
+  assert.equal(storage.dump()[BACKGROUND_SETTINGS_KEY], JSON.stringify({ ...saved, imageStorage: 'cache' }))
+  assert.equal(imageStore.fetches(), 1)
+  assert.equal(imageStore.peekCache()?.source, 'https://example.com/bg.png')
 
   const cleared = await clearBackgroundSettings({}, storage, imageStore)
   assert.deepEqual(cleared, createDefaultBackgroundSettings())
   assert.equal(storage.dump()[BACKGROUND_SETTINGS_KEY], undefined)
   assert.equal(imageStore.peek(), '')
+  assert.equal(imageStore.peekCache(), null)
 })
 
 test('clearing the background keeps the chosen layout preferences', async () => {
@@ -243,12 +276,17 @@ test('stores uploaded background image outside localStorage', async () => {
   assert.equal(loaded.imageUrl, dataUrl)
 })
 
-test('stores a remote https video url without touching IndexedDB', async () => {
+test('downloads a remote wallpaper once and keeps the url for sync', async () => {
   const storage = createMemoryStorage()
   const imageStore = createImageStore('data:image/png;base64,old')
   const url = 'https://cdn.jsdelivr.net/gh/refanbanzhang/cdn-images@main/wallpapers/loop.mp4'
 
   const saved = await saveBackgroundSettings(
+    { mediaType: 'video', imageUrl: url, enabled: true },
+    storage,
+    imageStore
+  )
+  await saveBackgroundSettings(
     { mediaType: 'video', imageUrl: url, enabled: true },
     storage,
     imageStore
@@ -259,11 +297,115 @@ test('stores a remote https video url without touching IndexedDB', async () => {
   assert.equal(saved.imageUrl, url)
   assert.equal(saved.mediaType, 'video')
   assert.equal(persisted.imageUrl, url)
-  assert.equal(persisted.imageStorage, '')
+  assert.equal(persisted.imageStorage, 'cache')
+  assert.equal(imageStore.fetches(), 1)
   assert.equal(imageStore.peek(), '')
   assert.equal(imageStore.peekVideo(), null)
+  assert.equal(imageStore.peekCache()?.source, url)
   assert.equal(loaded.imageUrl, url)
   assert.equal(isLocalBackgroundSource(saved), false)
+  assert.equal(isLocalBackgroundSource(persisted), false)
+  assert.equal(hasCachedBackground(storage), true)
+  assert.equal(hasDeferredBackground(storage), true)
+})
+
+test('does not save a remote wallpaper when the download fails', async () => {
+  const storage = createMemoryStorage({
+    [BACKGROUND_SETTINGS_KEY]: JSON.stringify({ imageUrl: 'https://example.com/old.jpg', enabled: true })
+  })
+  const imageStore = createImageStore('', { fetchError: new Error('壁纸下载失败，请重试。') })
+
+  await assert.rejects(
+    () => saveBackgroundSettings({ imageUrl: 'https://example.com/new.jpg', enabled: true }, storage, imageStore),
+    /壁纸下载失败/
+  )
+  assert.equal(
+    storage.dump()[BACKGROUND_SETTINGS_KEY],
+    JSON.stringify({ imageUrl: 'https://example.com/old.jpg', enabled: true })
+  )
+  assert.equal(imageStore.peekCache(), null)
+})
+
+test('refuses to keep a remote wallpaper when local storage rejects the file', async () => {
+  const storage = createMemoryStorage()
+  const imageStore = createImageStore('', { cacheWrites: false })
+
+  await assert.rejects(
+    () => saveBackgroundSettings({ imageUrl: 'https://example.com/bg.jpg', enabled: true }, storage, imageStore),
+    /存储空间不足/
+  )
+  assert.equal(storage.dump()[BACKGROUND_SETTINGS_KEY], undefined)
+})
+
+test('replaces the cached file when the remote wallpaper changes', async () => {
+  const storage = createMemoryStorage()
+  const imageStore = createImageStore()
+  const first = 'https://example.com/a.jpg'
+  const second = 'https://example.com/b.mp4'
+
+  await saveBackgroundSettings({ imageUrl: first, enabled: true }, storage, imageStore)
+  await saveBackgroundSettings({ mediaType: 'video', imageUrl: second, enabled: true }, storage, imageStore)
+
+  assert.equal(imageStore.fetches(), 2)
+  assert.equal(imageStore.peekCache()?.source, second)
+  assert.equal(JSON.parse(storage.dump()[BACKGROUND_SETTINGS_KEY]).imageUrl, second)
+})
+
+test('marks an existing remote wallpaper as cached without changing its url', () => {
+  const storage = createMemoryStorage({
+    [BACKGROUND_SETTINGS_KEY]: JSON.stringify({
+      enabled: true,
+      imageUrl: 'https://example.com/bg.jpg',
+      imageStorage: ''
+    })
+  })
+
+  rememberCachedBackground(storage)
+  const persisted = JSON.parse(storage.dump()[BACKGROUND_SETTINGS_KEY])
+
+  assert.equal(persisted.imageUrl, 'https://example.com/bg.jpg')
+  assert.equal(persisted.imageStorage, 'cache')
+  rememberCachedBackground(storage)
+  assert.equal(storage.dump()[BACKGROUND_SETTINGS_KEY], JSON.stringify(persisted))
+})
+
+test('download rejects a failed response and an empty file', async () => {
+  await assert.rejects(
+    () => downloadBackgroundBlob('https://example.com/bg.jpg', async () => ({ ok: false, blob: async () => new Blob(['x']) })),
+    /壁纸下载失败/
+  )
+  await assert.rejects(
+    () => downloadBackgroundBlob('https://example.com/bg.jpg', async () => { throw new Error('offline') }),
+    /壁纸下载失败/
+  )
+  await assert.rejects(
+    () => downloadBackgroundBlob('https://example.com/bg.jpg', async () => ({ ok: true, blob: async () => new Blob([]) })),
+    /壁纸下载失败/
+  )
+
+  const blob = new Blob(['img'], { type: 'image/jpeg' })
+  assert.equal(
+    await downloadBackgroundBlob('https://example.com/bg.jpg', async () => ({ ok: true, blob: async () => blob })),
+    blob
+  )
+
+  const untyped = new Blob(['video'], { type: 'application/octet-stream' })
+  const typed = await downloadBackgroundBlob(
+    'https://cdn.example/wallpapers/loop.mp4',
+    async () => ({ ok: true, blob: async () => untyped })
+  )
+  assert.equal(typed.type, 'video/mp4')
+  assert.equal(typed.size, untyped.size)
+})
+
+test('cacheRemoteBackground reuses the stored file for the same url', async () => {
+  const imageStore = createImageStore()
+  const url = 'https://example.com/bg.jpg'
+  const first = await cacheRemoteBackground(url, imageStore)
+  const second = await cacheRemoteBackground(url, imageStore)
+
+  assert.equal(first, second)
+  assert.equal(imageStore.fetches(), 1)
 })
 
 test('remote http backgrounds are not treated as local media', () => {
@@ -315,9 +457,11 @@ test('peeks the stored settings synchronously for the first render', () => {
   const peeked = peekBackgroundSettings(storage)
 
   assert.equal(peeked.enabled, true)
-  assert.equal(peeked.imageUrl, 'https://example.com/bg.jpg')
+  assert.equal(peeked.imageUrl, '')
   assert.equal(peeked.cardSize, 0)
   assert.equal(hasStoredLocalBackgroundImage(storage), false)
+  assert.equal(hasDeferredBackground(storage), true)
+  assert.equal(hasCachedBackground(storage), false)
 })
 
 test('peek keeps the layout state but leaves the local image url empty', () => {

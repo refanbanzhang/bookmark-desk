@@ -15,20 +15,19 @@ const block = (source, selector) => {
   return match[0]
 }
 
-test('new-tab wallpaper layer fits the full image instead of cropping', () => {
+test('new-tab wallpaper layer covers the viewport', () => {
   const backdrop = block(css, '.page-backdrop')
   const video = block(css, '.page-backdrop__video')
 
-  assert.match(backdrop, /background-size:\s*contain/)
-  assert.doesNotMatch(backdrop, /background-size:\s*cover/)
-  assert.match(video, /object-fit:\s*contain/)
-  assert.doesNotMatch(video, /object-fit:\s*cover/)
+  assert.match(backdrop, /background-size:\s*cover/)
+  assert.match(video, /object-fit:\s*cover/)
 })
 
 test('selecting a wallpaper still writes the full-resolution url onto the live backdrop', () => {
   assert.match(app, /class="page-backdrop"/)
   assert.match(app, /backdropEl\.value\.style\.backgroundImage = backdropImageUrl\.value/)
   assert.match(composable, /backgroundSize:\s*settings\.size/)
-  assert.match(composable, /selectPresetWallpaper/)
+  assert.match(composable, /downloadPresetWallpaper/)
   assert.match(composable, /backgroundDraft\.value\.imageUrl = url/)
+  assert.match(composable, /isRemoteBackgroundUrl\(url\)/)
 })
