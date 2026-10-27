@@ -5,8 +5,6 @@ import {
   inferMediaType,
   loadWallpaperCatalog,
   parseWallpaperCatalog,
-  pickCatalogThumb,
-  resolveCatalogMediaUrl,
   wallpaperMediaUrl
 } from '../src/utils/wallpaperCatalog.js'
 
@@ -54,12 +52,10 @@ test('parses catalog items and skips entries without a path', () => {
   assert.equal(catalog.items.length, 3)
   assert.equal(catalog.items[0].url, `${JSDELIVR.mediaBase}wallpapers/${encodeURIComponent('夜山.jpg')}`)
   assert.equal(catalog.items[0].thumbUrl, catalog.items[0].url)
-  assert.equal(catalog.items[0].posterUrl, '')
   assert.equal(catalog.items[0].type, 'image')
   assert.equal(catalog.items[1].type, 'video')
   assert.equal(catalog.items[1].title, 'loop')
   assert.equal(catalog.items[1].thumbUrl, catalog.items[1].url)
-  assert.equal(catalog.items[1].posterUrl, '')
   assert.equal(catalog.items[2].title, 'plain')
   assert.equal(catalog.items[2].type, 'image')
   assert.equal(catalog.items[2].thumbUrl, catalog.items[2].url)
@@ -75,17 +71,13 @@ test('uses catalog thumb for gallery preview and keeps the full wallpaper url', 
           type: 'image'
         },
         {
-          path: 'wallpapers/plain.png',
-          thumbPath: 'wallpapers/thumbs/plain.jpg'
+          path: 'wallpapers/风景 - 自然山脉.jpg',
+          thumb: 'wallpapers/thumbs/风景 - 自然山脉.webp',
+          type: 'image'
         },
         {
           path: 'wallpapers/loop.mp4',
-          type: 'video',
-          poster: 'wallpapers/thumbs/loop.jpg'
-        },
-        {
-          path: 'wallpapers/abs.jpg',
-          thumbnail: 'https://cdn.example/thumbs/abs.jpg'
+          type: 'video'
         },
         {
           path: 'wallpapers/empty.jpg',
@@ -96,7 +88,7 @@ test('uses catalog thumb for gallery preview and keeps the full wallpaper url', 
     JSDELIVR.mediaBase
   )
 
-  const [night, plain, loop, abs, empty] = catalog.items
+  const [night, mountain, loop, empty] = catalog.items
 
   assert.equal(night.url, `${JSDELIVR.mediaBase}wallpapers/${encodeURIComponent('夜山.jpg')}`)
   assert.equal(
@@ -104,28 +96,14 @@ test('uses catalog thumb for gallery preview and keeps the full wallpaper url', 
     `${JSDELIVR.mediaBase}wallpapers/thumbs/${encodeURIComponent('夜山.webp')}`
   )
   assert.notEqual(night.thumbUrl, night.url)
-  assert.equal(plain.thumbUrl, `${JSDELIVR.mediaBase}wallpapers/thumbs/plain.jpg`)
-  assert.equal(loop.url, `${JSDELIVR.mediaBase}wallpapers/loop.mp4`)
-  assert.equal(loop.posterUrl, `${JSDELIVR.mediaBase}wallpapers/thumbs/loop.jpg`)
-  assert.equal(loop.thumbUrl, loop.posterUrl)
-  assert.equal(abs.thumbUrl, 'https://cdn.example/thumbs/abs.jpg')
-  assert.equal(empty.thumbUrl, empty.url)
-})
-
-test('picks the first non-empty thumb alias and resolves relative or absolute values', () => {
-  assert.equal(pickCatalogThumb({ thumb: 'a.webp', poster: 'b.jpg' }), 'a.webp')
-  assert.equal(pickCatalogThumb({ thumbPath: 'thumbs/a.jpg' }), 'thumbs/a.jpg')
-  assert.equal(pickCatalogThumb({ thumbUrl: 'https://cdn.example/a.jpg' }), 'https://cdn.example/a.jpg')
-  assert.equal(pickCatalogThumb({ thumbnail: 't.jpg' }), 't.jpg')
-  assert.equal(pickCatalogThumb({ preview: 'p.jpg' }), 'p.jpg')
-  assert.equal(pickCatalogThumb({ poster: 'poster.jpg' }), 'poster.jpg')
-  assert.equal(pickCatalogThumb({ thumb: '  ' }), '')
   assert.equal(
-    resolveCatalogMediaUrl('wallpapers/thumbs/a.jpg', JSDELIVR.mediaBase),
-    `${JSDELIVR.mediaBase}wallpapers/thumbs/a.jpg`
+    mountain.thumbUrl,
+    `${JSDELIVR.mediaBase}wallpapers/thumbs/${encodeURIComponent('风景 - 自然山脉.webp')}`
   )
-  assert.equal(resolveCatalogMediaUrl('https://cdn.example/a.jpg', JSDELIVR.mediaBase), 'https://cdn.example/a.jpg')
-  assert.equal(resolveCatalogMediaUrl('', JSDELIVR.mediaBase), '')
+  assert.equal(loop.url, `${JSDELIVR.mediaBase}wallpapers/loop.mp4`)
+  assert.equal(loop.thumbUrl, loop.url)
+  assert.equal(empty.thumbUrl, empty.url)
+  assert.equal(empty.url, `${JSDELIVR.mediaBase}wallpapers/empty.jpg`)
 })
 
 test('loads jsDelivr first and falls back to GitHub raw', async () => {

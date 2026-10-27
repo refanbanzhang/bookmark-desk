@@ -172,7 +172,6 @@ watch(backgroundSettingsOpen, (open) => {
               v-else
               class="gallery-thumb"
               :src="item.url"
-              :poster="item.posterUrl || undefined"
               muted
               preload="metadata"
               playsinline

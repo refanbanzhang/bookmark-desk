@@ -12,19 +12,14 @@ export const WALLPAPER_CDN_SOURCES = [
 ]
 
 const VIDEO_EXT = /\.(mp4|webm|ogv|mov)(\?|#|$)/i
-const ABSOLUTE_MEDIA = /^(https?:\/\/|data:)/i
 
 /*
- * cdn-images / wallpapers/index.json 约定：
- *   path   必填，仓库相对路径，选中后用作全分辨率壁纸
- *   thumb  可选，轻量预览：仓库相对路径（如 wallpapers/thumbs/foo.webp）
- *          或 http(s)/data 绝对地址
- *
- * thumb 别名（第一个非空生效）：thumbPath、thumbUrl、thumbnail、preview、poster
- * 没有 thumb 时画廊回退到 path 的全图 URL，不要猜测 thumbs/ 目录。
+ * cdn-images / wallpapers/index.json：
+ *   path   必填，全分辨率壁纸，仓库相对路径
+ *   thumb  可选，仅图片。形如 wallpapers/thumbs/<与 path 同名>.webp
+ *          和 path 走同一 mediaBase。视频没有这个字段。
+ * 缺 thumb 或为空时，画廊回退到 path 的全图 URL，不要猜测 thumbs/ 目录。
  */
-const THUMB_FIELDS = ['thumb', 'thumbPath', 'thumbUrl', 'thumbnail', 'preview', 'poster']
-
 const trimText = (value) => (typeof value === 'string' ? value.trim() : '')
 
 /** 中文文件名按段编码，整段 encode 会把斜杠也吃掉 */
@@ -36,26 +31,6 @@ export const wallpaperMediaUrl = (path, mediaBase) => {
     .join('/')
 
   return encoded ? `${mediaBase}${encoded}` : ''
-}
-
-export const resolveCatalogMediaUrl = (value, mediaBase) => {
-  const trimmed = trimText(value)
-  if (!trimmed) {
-    return ''
-  }
-
-  return ABSOLUTE_MEDIA.test(trimmed) ? trimmed : wallpaperMediaUrl(trimmed, mediaBase)
-}
-
-export const pickCatalogThumb = (item) => {
-  for (const field of THUMB_FIELDS) {
-    const value = trimText(item?.[field])
-    if (value) {
-      return value
-    }
-  }
-
-  return ''
 }
 
 export const inferMediaType = (value) => {
@@ -89,8 +64,7 @@ export const parseWallpaperCatalog = (data, mediaBase) => {
     }
 
     const type = inferMediaType(item?.type || item?.name || path)
-    const resolvedThumb = resolveCatalogMediaUrl(pickCatalogThumb(item), mediaBase)
-    const thumbUrl = resolvedThumb || url
+    const thumbUrl = wallpaperMediaUrl(trimText(item?.thumb), mediaBase) || url
 
     parsed.push({
       path,
@@ -98,8 +72,7 @@ export const parseWallpaperCatalog = (data, mediaBase) => {
       title: itemTitle(item, path),
       type,
       url,
-      thumbUrl,
-      posterUrl: type === 'video' && resolvedThumb ? resolvedThumb : ''
+      thumbUrl
     })
   }
 
