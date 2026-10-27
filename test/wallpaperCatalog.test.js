@@ -127,6 +127,57 @@ test('loads jsDelivr first and falls back to GitHub raw', async () => {
   assert.equal(loaded.items[0].thumbUrl, `${GITHUB.mediaBase}wallpapers/thumbs/a.webp`)
 })
 
+test('skips a stale jsDelivr catalog that has no thumb fields', async () => {
+  const stale = {
+    updatedAt: '2026-10-27T03:10:38Z',
+    items: [{ path: 'wallpapers/a.jpg', name: 'a.jpg', title: 'A', type: 'image' }]
+  }
+  const fresh = {
+    updatedAt: '2026-10-27T04:04:51Z',
+    items: [{
+      path: 'wallpapers/a.jpg',
+      name: 'a.jpg',
+      title: 'A',
+      type: 'image',
+      thumb: 'wallpapers/thumbs/a.webp'
+    }]
+  }
+  const seen = []
+  const fetchImpl = async (url) => {
+    seen.push(url)
+    if (url === JSDELIVR.catalogUrl) {
+      return jsonResponse(stale)
+    }
+    return jsonResponse(fresh)
+  }
+
+  const loaded = await loadWallpaperCatalog(fetchImpl)
+  assert.deepEqual(seen, [JSDELIVR.catalogUrl, GITHUB.catalogUrl])
+  assert.equal(loaded.items[0].url, `${GITHUB.mediaBase}wallpapers/a.jpg`)
+  assert.equal(loaded.items[0].thumbUrl, `${GITHUB.mediaBase}wallpapers/thumbs/a.webp`)
+})
+
+test('keeps jsDelivr when it already has thumb fields', async () => {
+  const seen = []
+  const loaded = await loadWallpaperCatalog(async (url) => {
+    seen.push(url)
+    return jsonResponse({
+      items: [{ path: 'wallpapers/a.jpg', type: 'image', thumb: 'wallpapers/thumbs/a.webp' }]
+    })
+  })
+
+  assert.deepEqual(seen, [JSDELIVR.catalogUrl])
+  assert.equal(loaded.items[0].thumbUrl, `${JSDELIVR.mediaBase}wallpapers/thumbs/a.webp`)
+})
+
+test('keeps the stale catalog when every host lacks thumbs', async () => {
+  const loaded = await loadWallpaperCatalog(async () => jsonResponse({
+    items: [{ path: 'wallpapers/a.jpg', type: 'image' }]
+  }))
+  assert.equal(loaded.items[0].url, `${JSDELIVR.mediaBase}wallpapers/a.jpg`)
+  assert.equal(loaded.items[0].thumbUrl, loaded.items[0].url)
+})
+
 test('returns an empty gallery when the catalog has no usable items', async () => {
   const loaded = await loadWallpaperCatalog(async () => jsonResponse({ items: [] }))
   assert.deepEqual(loaded.items, [])
