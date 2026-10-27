@@ -9,6 +9,7 @@ import {
   peekBackgroundSettings,
   saveBackgroundSettings
 } from '../utils/backgroundSettings'
+import { inferMediaType } from '../utils/wallpaperCatalog'
 import { ensureWebfonts } from '../utils/webfonts'
 import { rememberPrefs, requestSyncPush } from './syncBridge'
 
@@ -110,7 +111,11 @@ export const useBackgroundImage = () => {
 
   const initBackgroundSettings = async () => {
     backgroundSettings.value = await loadBackgroundSettings()
-    if (backgroundSettings.value.mediaType === 'video') {
+    if (
+      backgroundSettings.value.mediaType === 'video' &&
+      typeof backgroundSettings.value.imageUrl === 'string' &&
+      backgroundSettings.value.imageUrl.startsWith('blob:')
+    ) {
       activeVideoObjectUrl = backgroundSettings.value.imageUrl
     }
     pendingLocalImage.value = false
@@ -129,7 +134,7 @@ export const useBackgroundImage = () => {
       }
       activeVideoObjectUrl = URL.createObjectURL(runtimeSettings.imageUrl)
       runtimeSettings.imageUrl = activeVideoObjectUrl
-    } else if (runtimeSettings.mediaType !== 'video' && activeVideoObjectUrl) {
+    } else if (activeVideoObjectUrl) {
       URL.revokeObjectURL(activeVideoObjectUrl)
       activeVideoObjectUrl = ''
     }
@@ -154,7 +159,7 @@ export const useBackgroundImage = () => {
       ...(plan.appearance || {})
     }
     if (plan.image?.mode === 'url') {
-      next.mediaType = 'image'
+      next.mediaType = inferMediaType(plan.image.imageUrl)
       next.imageUrl = plan.image.imageUrl
     } else if (plan.image?.mode === 'clear') {
       next.mediaType = 'image'
@@ -185,7 +190,7 @@ export const useBackgroundImage = () => {
       : backgroundDraft.value.imageUrl
 
     if (backgroundDraft.value.enabled && !nextImageUrl) {
-      backgroundError.value = '请先上传一张背景图。'
+      backgroundError.value = '请先选择或上传一张背景。'
       return
     }
 
@@ -216,6 +221,20 @@ export const useBackgroundImage = () => {
     } catch (error) {
       backgroundError.value = error instanceof Error ? error.message : '背景设置保存失败。'
     }
+  }
+
+  const selectPresetWallpaper = (item) => {
+    const url = typeof item?.url === 'string' ? item.url.trim() : ''
+    if (!url) {
+      backgroundError.value = '预设壁纸地址无效。'
+      return
+    }
+
+    releaseDraftVideo()
+    backgroundDraft.value.imageUrl = url
+    backgroundDraft.value.mediaType = inferMediaType(item?.type || url)
+    backgroundDraft.value.enabled = true
+    backgroundError.value = ''
   }
 
   const triggerBackgroundUpload = () => {
@@ -282,6 +301,7 @@ export const useBackgroundImage = () => {
     closeBackgroundSettings,
     saveBackgroundSettingsForm,
     clearBackgroundImage,
+    selectPresetWallpaper,
     triggerBackgroundUpload,
     handleBackgroundUpload,
     releaseBackgroundVideo
