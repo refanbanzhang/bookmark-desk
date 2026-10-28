@@ -10,20 +10,26 @@ export const WALLPAPER_LIST_URL =
 export const wallpaperThumbsUrl = (ref = BRANCH) =>
   `https://api.github.com/repos/${REPO}/contents/${WALLPAPER_DIR}/thumbs?ref=${ref}`
 
-/** 钉在具体提交上，避免 jsDelivr 把 @main 缓存成旧文件 */
-export const wallpaperMediaBase = (sha = '') =>
-  `https://cdn.jsdelivr.net/gh/${REPO}@${sha || BRANCH}/`
+const githubRawBase = (ref = BRANCH) =>
+  `https://raw.githubusercontent.com/${REPO}/${ref}/`
+
+/** 图片和缩略图走 raw。钉提交是为了目录回退时对齐那一次 listing。 */
+export const wallpaperMediaBase = (sha = '') => githubRawBase(sha || BRANCH)
+
+/** Git LFS 视频在 raw 上只有 pointer，真实文件在 media.githubusercontent.com */
+export const wallpaperVideoBase = (sha = '') =>
+  `https://media.githubusercontent.com/media/${REPO}/${sha || BRANCH}/`
 
 export const WALLPAPER_CDN_SOURCES = [
+  {
+    id: 'github',
+    catalogUrl: `${githubRawBase()}wallpapers/index.json`,
+    mediaBase: githubRawBase()
+  },
   {
     id: 'jsdelivr',
     catalogUrl: `https://cdn.jsdelivr.net/gh/${REPO}@${BRANCH}/wallpapers/index.json`,
     mediaBase: `https://cdn.jsdelivr.net/gh/${REPO}@${BRANCH}/`
-  },
-  {
-    id: 'github',
-    catalogUrl: `https://raw.githubusercontent.com/${REPO}/${BRANCH}/wallpapers/index.json`,
-    mediaBase: `https://raw.githubusercontent.com/${REPO}/${BRANCH}/`
   }
 ]
 
@@ -77,18 +83,18 @@ const itemTitle = (item, path) => {
   return fileStem(name)
 }
 
-export const parseWallpaperCatalog = (data, mediaBase) => {
+export const parseWallpaperCatalog = (data, mediaBase, videoBase = wallpaperVideoBase()) => {
   const items = Array.isArray(data?.items) ? data.items : []
   const parsed = []
 
   for (const item of items) {
     const path = trimText(item?.path)
-    const url = wallpaperMediaUrl(path, mediaBase)
+    const type = inferMediaType(item?.type || item?.name || path)
+    const url = wallpaperMediaUrl(path, type === 'video' ? videoBase : mediaBase)
     if (!url) {
       continue
     }
 
-    const type = inferMediaType(item?.type || item?.name || path)
     const thumbUrl = wallpaperMediaUrl(thumbPathFor(item, path), mediaBase)
 
     parsed.push({
@@ -125,7 +131,7 @@ const thumbPaths = (entries) => {
 }
 
 /** 目录里的图片和视频都是壁纸。index.json 和 thumbs 目录本身不是。 */
-export const catalogFromDirectory = (entries, thumbEntries, mediaBase) => {
+export const catalogFromDirectory = (entries, thumbEntries, mediaBase, videoBase) => {
   const thumbs = thumbPaths(thumbEntries)
   const items = []
 
@@ -145,7 +151,7 @@ export const catalogFromDirectory = (entries, thumbEntries, mediaBase) => {
   }
 
   items.sort((left, right) => left.name.localeCompare(right.name, 'zh'))
-  return parseWallpaperCatalog({ items }, mediaBase)
+  return parseWallpaperCatalog({ items }, mediaBase, videoBase)
 }
 
 export const wallpaperFilePath = (url) => {
@@ -209,7 +215,7 @@ const loadDirectoryCatalog = async (fetchImpl) => {
     }
   }
 
-  return catalogFromDirectory(entries, thumbs, wallpaperMediaBase(sha))
+  return catalogFromDirectory(entries, thumbs, wallpaperMediaBase(sha), wallpaperVideoBase(sha))
 }
 
 const loadIndexCatalog = async (fetchImpl) => {
@@ -232,7 +238,7 @@ const loadIndexCatalog = async (fetchImpl) => {
   throw lastError || new Error('预设壁纸目录加载失败。')
 }
 
-/** 主路径只读 CDN index。GitHub Contents API 匿名每 IP 每小时约 60 次，只当最后一招。 */
+/** 主路径读 GitHub raw index。jsDelivr 只回退目录；GitHub Contents API 限流紧，最后再用。 */
 export const loadWallpaperCatalog = async (fetchImpl = globalThis.fetch) => {
   if (typeof fetchImpl !== 'function') {
     throw new Error('预设壁纸目录加载失败。')

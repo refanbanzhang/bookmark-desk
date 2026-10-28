@@ -89,7 +89,7 @@
   <ul>
     <li>页面默认从 <code>fonts.googleapis.com</code> 和 <code>fonts.gstatic.com</code> 加载可选字体的 CSS 和字体文件。</li>
     <li>选择 MiSans 或鸿蒙字体时，会按需从 <code>cdn.jsdelivr.net</code> 加载对应字体 CSS 和字体文件。</li>
-    <li>打开显示设置时，会从 <code>cdn.jsdelivr.net</code> 读取公开仓库 <code>refanbanzhang/cdn-images</code> 的 <code>wallpapers/index.json</code>；该地址不可用时回退到 <code>raw.githubusercontent.com</code> 上的同一文件。仅当两处目录都不可用时，才会请求 <code>api.github.com</code> 列出 <code>wallpapers</code> 目录。选中某张预设后，页面从 <code>cdn.jsdelivr.net</code> 加载对应的图片。</li>
+    <li>打开显示设置时，会从 <code>raw.githubusercontent.com</code> 读取公开仓库 <code>refanbanzhang/cdn-images</code> 的 <code>wallpapers/index.json</code> 以及图片/缩略图；该地址不可用时回退到 <code>cdn.jsdelivr.net</code> 上的同一目录文件。仅当两处目录都不可用时，才会请求 <code>api.github.com</code> 列出 <code>wallpapers</code> 目录。选中视频预设后，页面从 <code>media.githubusercontent.com</code> 下载 Git LFS 视频。</li>
     <li>这些请求只包含浏览器发送的常规网络请求信息，不包含用户书签、书签地址或本扩展的设置。</li>
     <li>上传的背景图片和 MP4 视频只保存在本机 <code>IndexedDB</code>，不会上传。预设图库加载失败时，仍可继续使用本地上传。</li>
     <li>当你主动点击书签时，浏览器会打开你选择的目标网站；这属于书签本身的导航行为。</li>
