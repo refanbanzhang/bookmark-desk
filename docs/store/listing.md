@@ -2,8 +2,8 @@
 
 直接复制粘贴用。`[方括号]` 是需要你替换的内容。
 
-当前构建版本：`1.2.25`
-当前上传包：`release/bookmark-desk-1.2.25.zip`
+当前构建版本：`1.2.30`
+当前上传包：`release/bookmark-desk-1.2.30.zip`
 
 提交前必须补齐两项：隐私政策公开 URL、对外联系邮箱。不要把下面的占位符原样提交。
 
@@ -152,7 +152,7 @@ Core logic ships inside the extension. Bookmarks and settings are not collected 
 ## 六、提交
 
 1. 先把 `docs/store/privacy-policy.html` 中的邮箱、日期和产品信息补齐，并部署成公开 HTTPS 页面
-2. 控制台上传 `release/bookmark-desk-1.2.25.zip`，Chrome 自动读取 manifest 抓权限
+2. 控制台上传 `release/bookmark-desk-1.2.30.zip`，Chrome 自动读取 manifest 抓权限
 3. 填完「商品详情」+「隐私权规范」才允许提交
 4. **先选「仅限测试人员」发布**，用一个干净 Chrome 用户走一遍完整安装流程，确认无异常后再转公开
 5. 首次提交不要勾「自动发布」，先人工看审查意见再放行
