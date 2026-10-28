@@ -27,7 +27,6 @@ export const WALLPAPER_CDN_SOURCES = [
   }
 ]
 
-const INDEX_FALLBACKS = [WALLPAPER_CDN_SOURCES[1], WALLPAPER_CDN_SOURCES[0]]
 const MEDIA_EXT = /\.(jpe?g|png|gif|webp|avif|mp4|webm|ogv|mov)$/i
 const COMMIT_SHA = /^[0-9a-f]{40}$/i
 const VIDEO_EXT = /\.(mp4|webm|ogv|mov)(\?|#|$)/i
@@ -169,13 +168,17 @@ export const sameWallpaper = (url, item) => {
   return Boolean(saved && item?.path) && saved === item.path
 }
 
+const catalogLoadError = (status) =>
+  new Error(`预设壁纸目录加载失败（${status || 0}）。`)
+
 const fetchJson = async (fetchImpl, url) => {
+  const githubApi = String(url).startsWith('https://api.github.com/')
   const response = await fetchImpl(url, {
     cache: 'no-store',
-    headers: { Accept: 'application/vnd.github+json' }
+    headers: { Accept: githubApi ? 'application/vnd.github+json' : 'application/json' }
   })
   if (!response?.ok) {
-    throw new Error(`预设壁纸目录加载失败（${response?.status || 0}）。`)
+    throw catalogLoadError(response?.status)
   }
 
   return response.json()
@@ -212,7 +215,7 @@ const loadDirectoryCatalog = async (fetchImpl) => {
 const loadIndexCatalog = async (fetchImpl) => {
   let lastError = null
 
-  for (const source of INDEX_FALLBACKS) {
+  for (const source of WALLPAPER_CDN_SOURCES) {
     try {
       const catalog = parseWallpaperCatalog(
         await fetchJson(fetchImpl, source.catalogUrl),
@@ -229,16 +232,17 @@ const loadIndexCatalog = async (fetchImpl) => {
   throw lastError || new Error('预设壁纸目录加载失败。')
 }
 
+/** 主路径只读 CDN index。GitHub Contents API 匿名每 IP 每小时约 60 次，只当最后一招。 */
 export const loadWallpaperCatalog = async (fetchImpl = globalThis.fetch) => {
   if (typeof fetchImpl !== 'function') {
     throw new Error('预设壁纸目录加载失败。')
   }
 
   try {
-    return await loadDirectoryCatalog(fetchImpl)
+    return await loadIndexCatalog(fetchImpl)
   } catch (error) {
     try {
-      return await loadIndexCatalog(fetchImpl)
+      return await loadDirectoryCatalog(fetchImpl)
     } catch (fallbackError) {
       if (fallbackError instanceof Error) {
         throw fallbackError
