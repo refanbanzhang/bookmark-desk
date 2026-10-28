@@ -28,11 +28,24 @@ test('gallery tiles keep thumb previews and hide wallpaper titles', () => {
   assert.equal(dialog.includes('gallery-name'), false)
   assert.match(dialog, /:src="item\.thumbUrl"/)
   assert.match(dialog, /@click="downloadPresetWallpaper\(item\)"/)
-  assert.match(dialog, /gallery-loading/)
+  assert.match(dialog, /gallery-mask/)
+  assert.match(dialog, /gallery-fill/)
+  assert.match(dialog, /cancelWallpaperDownload/)
   assert.equal(dialog.includes('<video'), false)
   assert.equal(dialog.includes('item.url'), false)
   assert.equal(dialog.includes('galleryPreview'), false)
   assert.match(dialog, /:title="item\.title"/)
+})
+
+test('the wallpaper in use keeps the border and the check', () => {
+  assert.equal(dialog.includes('gallery-now'), false)
+  assert.match(dialog, /class="gallery-mark"/)
+  assert.match(dialog, /aria-pressed/)
+
+  const selected = block(css, '.gallery-item.is-on')
+  assert.match(selected, /border-color:\s*var\(--accent\)/)
+  assert.match(selected, /box-shadow:\s*0 0 0 3px var\(--accent\)/)
+  assert.doesNotMatch(selected, /0 0 0 1px/)
 })
 
 test('gallery thumbs fill a 16:9 card instead of sitting in a gray mat', () => {

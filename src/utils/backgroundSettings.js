@@ -179,29 +179,117 @@ const withMediaType = (url, blob) => {
   return type ? new Blob([blob], { type }) : blob
 }
 
-/** 选中的远程壁纸整份下到本机。失败就抛，不能假装已经存好。 */
-export const downloadBackgroundBlob = async (url, fetchImpl = globalThis.fetch) => {
+const isAbortError = (error) => error?.name === 'AbortError'
+
+const abortError = () => new DOMException('下载已取消', 'AbortError')
+
+const headerValue = (response, name) => {
+  const value = response.headers?.get?.(name)
+  return typeof value === 'string' ? value : ''
+}
+
+/** 取消时丢掉已经收到的字节，并放开连接。半截数据不能留着。 */
+const discardReceived = async (reader, chunks) => {
+  chunks.length = 0
+  try {
+    await reader.cancel()
+  } catch {
+    /* 连接已经断了 */
+  }
+}
+
+const readDownload = async (response, url, { signal, onProgress } = {}) => {
+  const stream = response.body
+  if (!stream || typeof stream.getReader !== 'function') {
+    if (typeof response.blob !== 'function') {
+      throw new Error(DOWNLOAD_FAILED)
+    }
+    const blob = await response.blob()
+    if (!isBlob(blob) || blob.size === 0) {
+      throw new Error(DOWNLOAD_FAILED)
+    }
+    onProgress?.({ loaded: blob.size, total: blob.size })
+    return withMediaType(url, blob)
+  }
+
+  const reader = stream.getReader()
+  const chunks = []
+  let loaded = 0
+  const total = Number(headerValue(response, 'content-length')) || 0
+
+  try {
+    while (true) {
+      if (signal?.aborted) {
+        await discardReceived(reader, chunks)
+        throw abortError()
+      }
+
+      const step = await reader.read()
+      if (signal?.aborted) {
+        await discardReceived(reader, chunks)
+        throw abortError()
+      }
+      if (step.done) {
+        break
+      }
+
+      chunks.push(step.value)
+      loaded += step.value?.byteLength || 0
+      onProgress?.({ loaded, total })
+      if (signal?.aborted) {
+        await discardReceived(reader, chunks)
+        throw abortError()
+      }
+    }
+  } catch (error) {
+    await discardReceived(reader, chunks)
+    if (isAbortError(error) || signal?.aborted) {
+      throw isAbortError(error) ? error : abortError()
+    }
+    throw new Error(DOWNLOAD_FAILED)
+  }
+
+  if (loaded === 0) {
+    throw new Error(DOWNLOAD_FAILED)
+  }
+
+  const type = headerValue(response, 'content-type').split(';')[0].trim()
+  return withMediaType(url, new Blob(chunks, type ? { type } : undefined))
+}
+
+/**
+ * 选中的远程壁纸整份下到本机。失败就抛，不能假装已经存好。
+ * options.signal 取消下载；options.onProgress 报告已收到的字节。
+ * 取消后半截字节会被丢掉，不会返回。
+ */
+export const downloadBackgroundBlob = async (url, fetchImpl = globalThis.fetch, options = {}) => {
   if (typeof fetchImpl !== 'function') {
     throw new Error(DOWNLOAD_FAILED)
   }
 
+  const signal = options?.signal
+  if (signal?.aborted) {
+    throw abortError()
+  }
+
   let response
   try {
-    response = await fetchImpl(url)
-  } catch {
+    response = await fetchImpl(url, signal ? { signal } : undefined)
+  } catch (error) {
+    if (isAbortError(error) || signal?.aborted) {
+      throw isAbortError(error) ? error : abortError()
+    }
     throw new Error(DOWNLOAD_FAILED)
   }
 
+  if (signal?.aborted) {
+    throw abortError()
+  }
   if (!response?.ok) {
     throw new Error(DOWNLOAD_FAILED)
   }
 
-  const blob = await response.blob()
-  if (!isBlob(blob) || blob.size === 0) {
-    throw new Error(DOWNLOAD_FAILED)
-  }
-
-  return withMediaType(url, blob)
+  return readDownload(response, url, options || {})
 }
 
 const isQuotaError = (error) =>

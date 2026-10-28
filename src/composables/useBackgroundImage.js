@@ -29,7 +29,8 @@ const pendingLocalImage = ref(hasDeferredBackground())
 let activeVideoObjectUrl = ''
 let draftVideoObjectUrl = ''
 const videoDraftFile = ref(null)
-const wallpaperDownloadPath = ref('')
+const wallpaperDownload = ref(null)
+let wallpaperAbort = null
 let cachedObjectUrl = ''
 let cachedMediaSource = ''
 const cachedMediaUrl = ref('')
@@ -267,11 +268,23 @@ export const useBackgroundImage = () => {
     backgroundSettingsOpen.value = true
   }
 
+  const cancelWallpaperDownload = () => {
+    if (!wallpaperAbort) {
+      return
+    }
+    const job = wallpaperDownload.value
+    console.info('[background] 取消壁纸下载', {
+      path: job?.path || '',
+      loaded: job?.loaded || 0
+    })
+    wallpaperAbort.abort()
+  }
+
   const closeBackgroundSettings = () => {
+    cancelWallpaperDownload()
     releaseDraftVideo()
     backgroundSettingsOpen.value = false
     backgroundError.value = ''
-    wallpaperDownloadPath.value = ''
     clearStagedBackground()
     const url = backgroundSettings.value.imageUrl
     if (!isRemoteBackgroundUrl(url)) {
@@ -345,26 +358,40 @@ export const useBackgroundImage = () => {
   const downloadPresetWallpaper = async (item) => {
     const url = typeof item?.url === 'string' ? item.url.trim() : ''
     const path = typeof item?.path === 'string' ? item.path : ''
-    if (!url || wallpaperDownloadPath.value) {
+    if (!url || wallpaperAbort) {
       if (!url) {
         backgroundError.value = '预设壁纸地址无效。'
       }
       return
     }
 
-    backgroundError.value = ''
+    const controller = new AbortController()
+    wallpaperAbort = controller
     const mark = path || url
+    backgroundError.value = ''
     try {
       const cached = await readCachedBackground(url)
+      if (controller.signal.aborted || !backgroundSettingsOpen.value) {
+        return
+      }
       if (cached) {
         adoptCachedMedia(url, cached)
         selectPresetWallpaper(item)
         return
       }
 
-      wallpaperDownloadPath.value = mark
-      const blob = await downloadBackgroundBlob(url)
-      if (!backgroundSettingsOpen.value || wallpaperDownloadPath.value !== mark) {
+      wallpaperDownload.value = { path: mark, loaded: 0, total: 0 }
+      const blob = await downloadBackgroundBlob(url, undefined, {
+        signal: controller.signal,
+        onProgress: ({ loaded, total }) => {
+          if (wallpaperAbort !== controller) {
+            return
+          }
+          wallpaperDownload.value = { path: mark, loaded, total }
+        }
+      })
+      /* 取消或关掉面板时，半截字节已在下载函数里丢掉。不能清掉上一次下完、还没保存的壁纸。 */
+      if (controller.signal.aborted || !backgroundSettingsOpen.value) {
         return
       }
       stageRemoteBackground(url, blob)
@@ -372,10 +399,16 @@ export const useBackgroundImage = () => {
       selectPresetWallpaper(item)
       console.info('[background] 壁纸已下载', { blobType: blob?.type || '', blobSize: blob?.size || 0 })
     } catch (error) {
+      if (controller.signal.aborted || error?.name === 'AbortError') {
+        return
+      }
       console.error('[background] 壁纸保存到本机失败', error)
       backgroundError.value = error instanceof Error ? error.message : 'error.bg.download'
     } finally {
-      wallpaperDownloadPath.value = ''
+      if (wallpaperAbort === controller) {
+        wallpaperAbort = null
+        wallpaperDownload.value = null
+      }
     }
   }
 
@@ -462,7 +495,8 @@ export const useBackgroundImage = () => {
     clearBackgroundImage,
     selectPresetWallpaper,
     downloadPresetWallpaper,
-    wallpaperDownloadPath,
+    cancelWallpaperDownload,
+    wallpaperDownload,
     triggerBackgroundUpload,
     handleBackgroundUpload,
     handleBackdropVideoError,

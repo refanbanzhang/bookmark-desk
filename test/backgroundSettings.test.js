@@ -398,6 +398,57 @@ test('download rejects a failed response and an empty file', async () => {
   assert.equal(typed.size, untyped.size)
 })
 
+test('download reports progress from the response stream', async () => {
+  const steps = []
+  const blob = await downloadBackgroundBlob('https://cdn.example/a.jpg', async () => ({
+    ok: true,
+    headers: {
+      get: (name) => (name === 'content-length' ? '4' : 'image/jpeg')
+    },
+    body: new ReadableStream({
+      start(controller) {
+        controller.enqueue(new Uint8Array([1, 2]))
+        controller.enqueue(new Uint8Array([3, 4]))
+        controller.close()
+      }
+    })
+  }), {
+    onProgress: ({ loaded, total }) => steps.push([loaded, total])
+  })
+
+  assert.deepEqual(steps, [[2, 4], [4, 4]])
+  assert.equal(blob.size, 4)
+  assert.equal(blob.type, 'image/jpeg')
+})
+
+test('cancel drops bytes already received', async () => {
+  const controller = new AbortController()
+  let canceled = false
+  await assert.rejects(
+    () => downloadBackgroundBlob('https://cdn.example/loop.mp4', async () => ({
+      ok: true,
+      headers: {
+        get: (name) => (name === 'content-length' ? '8' : 'video/mp4')
+      },
+      body: new ReadableStream({
+        start(stream) {
+          stream.enqueue(new Uint8Array([1, 2, 3, 4]))
+        },
+        cancel() {
+          canceled = true
+        }
+      })
+    }), {
+      signal: controller.signal,
+      onProgress() {
+        controller.abort()
+      }
+    }),
+    (error) => error?.name === 'AbortError'
+  )
+  assert.equal(canceled, true)
+})
+
 test('cacheRemoteBackground reuses the stored file for the same url', async () => {
   const imageStore = createImageStore()
   const url = 'https://example.com/bg.jpg'

@@ -1,5 +1,6 @@
 <script setup>
 import { ref, watch } from 'vue'
+import { Check } from 'lucide-vue-next'
 import { fontLabel, t, text } from '../i18n'
 import {
   CARD_SIZE_PRESETS,
@@ -19,9 +20,9 @@ const {
   closeBackgroundSettings,
   saveBackgroundSettingsForm,
   clearBackgroundImage,
-  selectPresetWallpaper,
   downloadPresetWallpaper,
-  wallpaperDownloadPath,
+  cancelWallpaperDownload,
+  wallpaperDownload,
   triggerBackgroundUpload,
   handleBackgroundUpload
 } = useBackgroundImage()
@@ -53,6 +54,24 @@ const loadGallery = async () => {
 
 const isSelectedWallpaper = (item) =>
   backgroundDraft.value.enabled && sameWallpaper(backgroundDraft.value.imageUrl, item)
+
+const formatSize = (bytes) => {
+  if (bytes < 1024 * 1024) {
+    return `${Math.max(1, Math.round(bytes / 1024))} KB`
+  }
+  const mb = bytes / (1024 * 1024)
+  return `${mb >= 10 ? Math.round(mb) : mb.toFixed(1)} MB`
+}
+
+const downloadPercent = (job) => {
+  if (!job || job.total <= 0) {
+    return ''
+  }
+  return `${Math.min(100, Math.round((job.loaded / job.total) * 100))}%`
+}
+
+/** 有总长度就显示百分比。跨域图片经常拿不到 Content-Length，这时显示已收到的大小。 */
+const downloadLabel = (job) => downloadPercent(job) || (job?.loaded > 0 ? formatSize(job.loaded) : '')
 
 /* 各档中文字族的样式表在选中前不会加载，所以打开面板时统一注入，
    每颗按钮才能用自己的字形当预览——这几十 KB 只在面板打开时才花 */
@@ -168,27 +187,49 @@ watch(backgroundSettingsOpen, (open) => {
           {{ t('settings.galleryRetry') }}
         </button>
         <div v-if="wallpapers.length" class="gallery">
-          <button
+          <div
             v-for="item in wallpapers"
             :key="item.path"
             class="gallery-item"
-            :class="{ 'is-on': isSelectedWallpaper(item), 'is-busy': wallpaperDownloadPath === item.path }"
-            type="button"
-            :title="item.title"
-            :disabled="Boolean(wallpaperDownloadPath)"
-            @click="downloadPresetWallpaper(item)"
+            :class="{ 'is-on': isSelectedWallpaper(item), 'is-busy': wallpaperDownload?.path === item.path }"
           >
-            <img
-              v-if="item.thumbUrl"
-              class="gallery-thumb"
-              :src="item.thumbUrl"
-              :alt="item.title"
-              loading="lazy"
-              decoding="async"
-            />
-            <span v-if="item.type === 'video'" class="gallery-tag">{{ t('settings.videoTag') }}</span>
-            <span v-if="wallpaperDownloadPath === item.path" class="gallery-loading">{{ t('settings.downloading') }}</span>
-          </button>
+            <button
+              class="gallery-hit"
+              type="button"
+              :title="item.title"
+              :aria-pressed="isSelectedWallpaper(item)"
+              :disabled="Boolean(wallpaperDownload)"
+              @click="downloadPresetWallpaper(item)"
+            >
+              <img
+                v-if="item.thumbUrl"
+                class="gallery-thumb"
+                :src="item.thumbUrl"
+                :alt="item.title"
+                loading="lazy"
+                decoding="async"
+              />
+              <span v-if="item.type === 'video'" class="gallery-tag">{{ t('settings.videoTag') }}</span>
+            </button>
+            <span v-if="isSelectedWallpaper(item)" class="gallery-mark">
+              <Check :size="13" :stroke-width="3" />
+            </span>
+            <div v-if="wallpaperDownload?.path === item.path" class="gallery-mask">
+              <div class="gallery-bar">
+                <div
+                  class="gallery-fill"
+                  :class="{ 'is-wait': !downloadPercent(wallpaperDownload) }"
+                  :style="downloadPercent(wallpaperDownload) ? { width: downloadPercent(wallpaperDownload) } : undefined"
+                ></div>
+              </div>
+              <div class="gallery-line">
+                <span class="gallery-pct">{{ downloadLabel(wallpaperDownload) || t('settings.downloading') }}</span>
+                <button class="gallery-stop" type="button" @click="cancelWallpaperDownload">
+                  {{ t('action.cancel') }}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </section>
