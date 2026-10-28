@@ -64,7 +64,7 @@ Bookmark Desk 把 Chrome 的新标签页换成你自己的书签台：不再显�
 · 一键导出备份：下载一个 HTML 文件，书签可被 Chrome 导入；本机显示设置、本地背景和目录密码哈希附在同一文件里，只保存在你的电脑上
 
 核心逻辑打包在扩展内，不收集、不上传书签和设置。预设壁纸列表读取公开 cdn-images 仓库的
-wallpapers 目录（api.github.com）。选中一张图片后，文件会下载到本机，之后从本机打开，不再每次重新请求；
+wallpapers/index.json（jsDelivr，失败则回退 GitHub raw）。选中一张图片后，文件会下载到本机，之后从本机打开，不再每次重新请求；
 字体样式会从 Google Fonts 加载；选择 MiSans 或鸿蒙字体时，还会按需从 jsDelivr 加载字体样式。
 网络不可用时预设图库显示失败提示，仍可上传本地背景；已经下载过的壁纸不受影响，字体回退到系统字体。
 ```
@@ -92,7 +92,7 @@ Key features
 · Local favicons: icons come from Chrome's local cache—no third-party icon service
 · One-click export: download an HTML backup Chrome can import; display settings, local background, and folder password hashes stay on your computer
 
-Core logic ships inside the extension. Bookmarks and settings are not collected or uploaded. The preset wallpaper list is the public refanbanzhang/cdn-images wallpapers folder, read from api.github.com. The selected image is downloaded once and kept on this computer; later visits open that local copy. Font styles may load from Google Fonts (and MiSans / HarmonyOS fonts from jsDelivr when selected). If the network is down, the gallery shows an error and you can still upload a local background; a wallpaper already downloaded keeps working, and fonts fall back to system fonts.
+Core logic ships inside the extension. Bookmarks and settings are not collected or uploaded. The preset wallpaper list is the public refanbanzhang/cdn-images wallpapers/index.json, read from jsDelivr (falling back to GitHub raw). The selected image is downloaded once and kept on this computer; later visits open that local copy. Font styles may load from Google Fonts (and MiSans / HarmonyOS fonts from jsDelivr when selected). If the network is down, the gallery shows an error and you can still upload a local background; a wallpaper already downloaded keeps working, and fonts fall back to system fonts.
 ```
 
 ## 四、隐私权规范（逐项照填）
@@ -112,9 +112,9 @@ Core logic ships inside the extension. Bookmarks and settings are not collected 
 | `favicon` | 读取 Chrome 本地已缓存的网站图标，用于展示书签卡片上的站点图标。图标取自本机缓存，不会向任何第三方服务器发起请求。 |
 | `storage` | 通过 Chrome 同步在同一账号的设备之间同步显示偏好：主题、卡片尺寸、字体、不透明度、圆角，以及背景开关、位置、缩放、平铺和 http/https 背景图地址（含用户选中的预设壁纸地址）。本地上传的图片和视频、已经下载到本机的预设壁纸文件、目录密码、当前目录不会同步。 |
 | `unlimitedStorage` | 选中的预设图片会整份保存到本机 IndexedDB，本地上传的视频可能超过扩展的默认存储配额。该权限只放宽本机存储上限，不读取、不上传任何数据。 |
-| 主机权限 `api.github.com` | 打开显示设置时，读取公开仓库 `refanbanzhang/cdn-images` 的 `wallpapers` 目录文件名，用来生成预设壁纸列表。不读取私有仓库，不携带书签或本机设置。 |
-| 主机权限 `cdn.jsdelivr.net` | 打开显示设置时加载预设壁纸预览；用户选中一张图片时把它下载到本机。已下载的文件之后从本机读取。并按需加载 MiSans / 鸿蒙字体样式。这些请求不携带书签或本机设置。用户仍可只使用本地上传。 |
-| 主机权限 `raw.githubusercontent.com` | 当 GitHub 目录接口不可用时，回退读取同一公开仓库的 `wallpapers/index.json`。不读取任何私有仓库或用户数据。 |
+| 主机权限 `api.github.com` | 仅当 jsDelivr 与 GitHub raw 上的 `wallpapers/index.json` 都不可用时，回退读取公开仓库 `refanbanzhang/cdn-images` 的 `wallpapers` 目录文件名。不读取私有仓库，不携带书签或本机设置。 |
+| 主机权限 `cdn.jsdelivr.net` | 打开显示设置时读取 `wallpapers/index.json` 并加载预设壁纸预览；用户选中一张图片时把它下载到本机。已下载的文件之后从本机读取。并按需加载 MiSans / 鸿蒙字体样式。这些请求不携带书签或本机设置。用户仍可只使用本地上传。 |
+| 主机权限 `raw.githubusercontent.com` | 当 jsDelivr 上的目录不可用时，回退读取同一公开仓库的 `wallpapers/index.json`。不读取任何私有仓库或用户数据。 |
 
 ### 数据使用
 
@@ -123,7 +123,7 @@ Core logic ships inside the extension. Bookmarks and settings are not collected 
 | 是否收集用户数据 | 否（不上传、不共享、不出售） |
 | 书签数据 | 仅在本机内存中读取用于渲染。用户点击「导出备份」时，书签与本机设置下载为一个本地 HTML 文件，不上传。 |
 | 设置与背景图 | 显示偏好经 Chrome 同步跟随登录账号；选中的预设壁纸只同步其公开 http/https 地址。壁纸文件下载到本机 IndexedDB，本地上传的图片和视频也只存在本机。目录密码只存在本机。不上传书签数据。 |
-| 网络请求 | 核心功能不依赖网络。打开显示设置时会从 jsDelivr（失败则回退 GitHub raw）读取公开预设壁纸目录。选中一张预设图片时下载一次并存入本机，之后从本机读取。页面还会加载 Google Fonts 字体样式，选择 MiSans 或鸿蒙字体时会按需加载 jsDelivr 字体样式。用户仍可上传本地图片/MP4，不依赖该目录。用户主动打开书签时，浏览器会导航到该书签地址。 |
+| 网络请求 | 核心功能不依赖网络。打开显示设置时会从 jsDelivr（失败则回退 GitHub raw）读取公开预设壁纸目录；仅当两处都不可用时才请求 GitHub 目录接口。选中一张预设图片时下载一次并存入本机，之后从本机读取。页面还会加载 Google Fonts 字体样式，选择 MiSans 或鸿蒙字体时会按需加载 jsDelivr 字体样式。用户仍可上传本地图片/MP4，不依赖该目录。用户主动打开书签时，浏览器会导航到该书签地址。 |
 | 是否使用远程代码 | 否，全部逻辑打包在扩展内 |
 | 隐私政策 URL | `[你的隐私政策页地址]`（模板见同目录 privacy-policy.html，必须部署成公开 HTTPS 地址） |
 

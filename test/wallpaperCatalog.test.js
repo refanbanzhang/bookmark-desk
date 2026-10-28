@@ -160,12 +160,62 @@ const directoryFetch = (entries, { sha = SHA, thumbStatus = 200, refStatus = 200
   return { seen, fetchImpl }
 }
 
-test('builds the gallery from the wallpaper directory and ignores the old index', async () => {
-  const { seen, fetchImpl } = directoryFetch(directory)
-  const loaded = await loadWallpaperCatalog(fetchImpl)
+const failIndexesThen = (fetchImpl) => async (url) => {
+  if (url === JSDELIVR.catalogUrl || url === GITHUB.catalogUrl) {
+    return jsonResponse({}, 503)
+  }
+  return fetchImpl(url)
+}
+
+test('loads the gallery from jsDelivr index.json and never calls GitHub API', async () => {
+  const seen = []
+  const loaded = await loadWallpaperCatalog(async (url) => {
+    seen.push(url)
+    if (url === JSDELIVR.catalogUrl) {
+      return jsonResponse({
+        items: [
+          { path: 'wallpapers/夜山.jpg', name: '夜山.jpg', type: 'image', thumb: 'wallpapers/thumbs/夜山.webp' },
+          { path: 'wallpapers/loop.mp4', name: 'loop.mp4', type: 'video', thumb: 'wallpapers/thumbs/loop.webp' }
+        ]
+      })
+    }
+    throw new Error(`unexpected ${url}`)
+  })
   const night = loaded.items.find((item) => item.name === '夜山.jpg')
 
-  assert.deepEqual(seen, [WALLPAPER_LIST_URL, WALLPAPER_REF_URL, wallpaperThumbsUrl(SHA)])
+  assert.deepEqual(seen, [JSDELIVR.catalogUrl])
+  assert.equal(loaded.items.length, 2)
+  assert.equal(night.url, `${JSDELIVR.mediaBase}wallpapers/${encodeURIComponent('夜山.jpg')}`)
+  assert.equal(
+    night.thumbUrl,
+    `${JSDELIVR.mediaBase}wallpapers/thumbs/${encodeURIComponent('夜山.webp')}`
+  )
+  assert.notEqual(night.thumbUrl, night.url)
+  const loop = loaded.items.find((item) => item.name === 'loop.mp4')
+  assert.equal(loop.type, 'video')
+  assert.equal(loop.url, `${JSDELIVR.mediaBase}wallpapers/loop.mp4`)
+  assert.equal(loop.thumbUrl, `${JSDELIVR.mediaBase}wallpapers/thumbs/loop.webp`)
+  assert.notEqual(loop.thumbUrl, loop.url)
+})
+
+test('builds the gallery from the wallpaper directory after both indexes fail', async () => {
+  const { seen, fetchImpl } = directoryFetch(directory)
+  const loaded = await loadWallpaperCatalog(async (url) => {
+    if (url === JSDELIVR.catalogUrl || url === GITHUB.catalogUrl) {
+      seen.push(url)
+      return jsonResponse({}, 503)
+    }
+    return fetchImpl(url)
+  })
+  const night = loaded.items.find((item) => item.name === '夜山.jpg')
+
+  assert.deepEqual(seen, [
+    JSDELIVR.catalogUrl,
+    GITHUB.catalogUrl,
+    WALLPAPER_LIST_URL,
+    WALLPAPER_REF_URL,
+    wallpaperThumbsUrl(SHA)
+  ])
   assert.equal(loaded.items.length, 2)
   assert.equal(night.url, `${wallpaperMediaBase(SHA)}wallpapers/${encodeURIComponent('夜山.jpg')}`)
   assert.equal(night.thumbUrl, `${wallpaperMediaBase(SHA)}wallpapers/thumbs/${encodeURIComponent('夜山.webp')}`)
@@ -198,15 +248,15 @@ test('a later directory listing adds and drops files without index.json', () => 
   assert.notEqual(after.items[1].thumbUrl, after.items[1].url)
 })
 
-test('keeps an empty gallery when the directory itself is empty', async () => {
+test('keeps an empty gallery when only the directory listing is empty', async () => {
   const { fetchImpl } = directoryFetch([])
-  const loaded = await loadWallpaperCatalog(fetchImpl)
+  const loaded = await loadWallpaperCatalog(failIndexesThen(fetchImpl))
   assert.deepEqual(loaded.items, [])
 })
 
 test('still lists files when the commit lookup or thumbs folder fails', async () => {
   const { fetchImpl } = directoryFetch(directory, { refStatus: 403, thumbStatus: 404, sha: SHA })
-  const loaded = await loadWallpaperCatalog(async (url) => {
+  const loaded = await loadWallpaperCatalog(failIndexesThen(async (url) => {
     if (url === WALLPAPER_REF_URL) {
       return jsonResponse({}, 403)
     }
@@ -214,7 +264,7 @@ test('still lists files when the commit lookup or thumbs folder fails', async ()
       return jsonResponse({}, 404)
     }
     return fetchImpl(url)
-  })
+  }))
 
   assert.equal(loaded.items.length, 2)
   const night = loaded.items.find((item) => item.name === '夜山.jpg')
@@ -227,12 +277,12 @@ test('still lists files when the commit lookup or thumbs folder fails', async ()
   assert.notEqual(loop.thumbUrl, loop.url)
 })
 
-test('falls back to GitHub raw index.json when the directory API fails', async () => {
+test('falls back to GitHub raw index.json when jsDelivr fails', async () => {
   const seen = []
   const loaded = await loadWallpaperCatalog(async (url) => {
     seen.push(url)
-    if (url === WALLPAPER_LIST_URL || url === WALLPAPER_REF_URL) {
-      return jsonResponse({}, 403)
+    if (url === JSDELIVR.catalogUrl) {
+      return jsonResponse({}, 503)
     }
     if (url === GITHUB.catalogUrl) {
       return jsonResponse({
@@ -242,23 +292,36 @@ test('falls back to GitHub raw index.json when the directory API fails', async (
     throw new Error(`unexpected ${url}`)
   })
 
-  assert.deepEqual(seen, [WALLPAPER_LIST_URL, WALLPAPER_REF_URL, GITHUB.catalogUrl])
+  assert.deepEqual(seen, [JSDELIVR.catalogUrl, GITHUB.catalogUrl])
   assert.equal(loaded.items[0].url, `${GITHUB.mediaBase}wallpapers/a.jpg`)
   assert.equal(loaded.items[0].thumbUrl, `${GITHUB.mediaBase}wallpapers/thumbs/a.webp`)
 })
 
-test('uses jsDelivr index.json only after GitHub raw also fails', async () => {
-  const seen = []
-  const loaded = await loadWallpaperCatalog(async (url) => {
-    seen.push(url)
-    if (url === JSDELIVR.catalogUrl) {
-      return jsonResponse({ items: [{ path: 'wallpapers/a.jpg', type: 'image' }] })
-    }
-    return jsonResponse({}, 503)
-  })
+test('directory API rate-limit JSON is not surfaced after index hosts fail', async () => {
+  const rateLimit = {
+    message: 'API rate limit exceeded for 85.211.247.0. (But here\'s the good news: Authenticated requests get a higher rate limit. Check out the documentation for more details.)',
+    documentation_url: 'https://docs.github.com/rest/overview/resources-in-the-rest-api#rate-limiting'
+  }
 
-  assert.deepEqual(seen, [WALLPAPER_LIST_URL, WALLPAPER_REF_URL, GITHUB.catalogUrl, JSDELIVR.catalogUrl])
-  assert.equal(loaded.items[0].url, `${JSDELIVR.mediaBase}wallpapers/a.jpg`)
+  await assert.rejects(
+    () => loadWallpaperCatalog(async (url) => {
+      if (url === JSDELIVR.catalogUrl || url === GITHUB.catalogUrl) {
+        return jsonResponse({}, 503)
+      }
+      return {
+        ok: false,
+        status: 403,
+        json: async () => rateLimit
+      }
+    }),
+    (error) => {
+      assert.match(error.message, /预设壁纸目录加载失败/)
+      assert.doesNotMatch(error.message, /rate limit/i)
+      assert.doesNotMatch(error.message, /85\.211\.247\.0/)
+      assert.equal(error.message.includes(rateLimit.message), false)
+      return true
+    }
+  )
 })
 
 test('matches a saved wallpaper across commit and branch urls', () => {
