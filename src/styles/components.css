@@ -52,8 +52,7 @@
 /* 有背景图时，文字块统一落到卡片面上，避免直接压在图片上看不清。
    面强度跟随「卡片不透明度」(--card-alpha)。 */
 .has-backdrop .tabbar,
-.has-backdrop .empty,
-.has-backdrop .recent {
+.has-backdrop .empty {
   padding: 11px var(--sp-5);
   background: color-mix(in srgb, var(--bg-card) calc(var(--card-alpha) * 100%), transparent);
   border: var(--hairline);
@@ -66,8 +65,7 @@
   border-bottom: var(--hairline);
 }
 
-.has-backdrop .empty,
-.has-backdrop .recent {
+.has-backdrop .empty {
   border-style: solid;
 }
 
@@ -133,36 +131,25 @@
   cursor: pointer;
 }
 
-.recent {
-  margin-top: var(--sp-6);
-}
-
-.recent__label {
-  margin-bottom: var(--sp-3);
-  font-size: var(--fs-meta);
-  font-weight: var(--fw-medium);
-  letter-spacing: 0.04em;
-  color: var(--text-3);
-}
-
 .recent__list {
   display: flex;
+  flex-direction: column;
   gap: var(--sp-2);
-  overflow-x: auto;
+  margin: var(--sp-5) 0 var(--sp-3);
 }
 
 .recent__item {
-  flex: none;
-  max-width: 180px;
-  height: 32px;
-  display: inline-flex;
+  width: 100%;
+  height: 36px;
+  display: flex;
   align-items: center;
   gap: var(--sp-2);
-  padding: 0 10px 0 6px;
+  padding: 0 10px 0 8px;
   color: var(--text);
-  background: var(--bg-elev);
+  text-align: left;
+  background: var(--bg-card);
   border: var(--hairline);
-  border-radius: var(--r-pill);
+  border-radius: var(--r-md);
   transition: border-color var(--t-fast), background-color var(--t-fast);
 }
 
@@ -188,10 +175,22 @@
 }
 
 .recent__title {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: var(--fs-body);
+}
+
+.recent__url {
+  margin-left: auto;
+  max-width: 46%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-meta);
+  color: var(--text-3);
 }
 
 .icon-btn {

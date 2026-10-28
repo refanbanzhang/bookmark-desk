@@ -1,6 +1,7 @@
 <script setup>
 import { Download, Moon, Palette, Search, Sun } from 'lucide-vue-next'
 import { locale, t, toggleLocale } from '../i18n'
+import RecentStrip from './RecentStrip.vue'
 import { useBackgroundImage } from '../composables/useBackgroundImage'
 import { useBackup } from '../composables/useBackup'
 import { useBookmarkSearch } from '../composables/useBookmarkSearch'
@@ -46,6 +47,7 @@ const onExport = () => {
     </label>
 
     <div class="topbar__actions">
+      <RecentStrip />
       <button
         class="icon-btn tip"
         type="button"

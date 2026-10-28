@@ -1,21 +1,17 @@
 <script setup>
-import { ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
+import { History } from 'lucide-vue-next'
 import { t } from '../i18n'
 import { getFaviconUrl } from '../utils/favicon'
 import { openBookmarkUrl } from '../composables/useChromeBookmarks'
 import { useContextMenu } from '../composables/useContextMenu'
 import { useRecentVisits } from '../composables/useRecentVisits'
+import BaseModal from './BaseModal.vue'
 
-defineProps({
-  nodes: {
-    type: Array,
-    default: () => []
-  }
-})
-
-const { recordVisit } = useRecentVisits()
-const { openContextMenu } = useContextMenu()
+const { recentNodes, recordVisit } = useRecentVisits()
+const { closeContextMenu, openContextMenu } = useContextMenu()
 const failed = ref(new Set())
+const open = ref(false)
 
 const markOf = (node) => {
   const title = (node.title || '').trim()
@@ -30,9 +26,33 @@ const markFailed = (node) => {
   failed.value = next
 }
 
-const open = (node, background = false) => {
+const close = () => {
+  open.value = false
+}
+
+const show = () => {
+  closeContextMenu()
+  open.value = true
+}
+
+const onKey = (event) => {
+  if (!open.value || event.key !== 'Escape') {
+    return
+  }
+  event.preventDefault()
+  event.stopImmediatePropagation()
+  close()
+}
+
+onMounted(() => window.addEventListener('keydown', onKey, true))
+onUnmounted(() => window.removeEventListener('keydown', onKey, true))
+
+const openItem = (node, background = false) => {
   recordVisit(node)
   openBookmarkUrl(node.url, { background })
+  if (!background) {
+    close()
+  }
 }
 
 const onAux = (node, event) => {
@@ -40,7 +60,7 @@ const onAux = (node, event) => {
     return
   }
   event.preventDefault()
-  open(node, true)
+  openItem(node, true)
 }
 
 const onMenu = (node, event) => {
@@ -50,32 +70,47 @@ const onMenu = (node, event) => {
 </script>
 
 <template>
-  <section class="recent" :aria-label="t('recent.label')">
-    <h2 class="recent__label">{{ t('recent.label') }}</h2>
-    <div class="recent__list">
-      <button
-        v-for="node in nodes"
-        :key="node.id"
-        class="recent__item"
-        type="button"
-        :title="node.title || node.url"
-        @click="open(node)"
-        @auxclick="onAux(node, $event)"
-        @contextmenu="onMenu(node, $event)"
-      >
-        <img
-          v-if="showIcon(node)"
-          class="recent__fav"
-          :src="getFaviconUrl(node.url)"
-          alt=""
-          width="18"
-          height="18"
-          draggable="false"
-          @error="markFailed(node)"
-        />
-        <span v-else class="recent__mark" aria-hidden="true">{{ markOf(node) }}</span>
-        <span class="recent__title">{{ node.title || t('name.bookmark') }}</span>
-      </button>
-    </div>
-  </section>
+  <button
+    v-if="recentNodes.length"
+    class="icon-btn tip"
+    type="button"
+    aria-haspopup="dialog"
+    :aria-expanded="open"
+    :data-tip="t('recent.label')"
+    :aria-label="t('recent.label')"
+    @click="show"
+  >
+    <History :size="15" />
+  </button>
+
+  <Teleport to="body">
+    <BaseModal v-if="open" :title="t('recent.label')" @close="close">
+      <div class="recent__list">
+        <button
+          v-for="node in recentNodes"
+          :key="node.id"
+          class="recent__item"
+          type="button"
+          :title="node.title || node.url"
+          @click="openItem(node)"
+          @auxclick="onAux(node, $event)"
+          @contextmenu="onMenu(node, $event)"
+        >
+          <img
+            v-if="showIcon(node)"
+            class="recent__fav"
+            :src="getFaviconUrl(node.url)"
+            alt=""
+            width="18"
+            height="18"
+            draggable="false"
+            @error="markFailed(node)"
+          />
+          <span v-else class="recent__mark" aria-hidden="true">{{ markOf(node) }}</span>
+          <span class="recent__title">{{ node.title || t('name.bookmark') }}</span>
+          <span class="recent__url">{{ node.url }}</span>
+        </button>
+      </div>
+    </BaseModal>
+  </Teleport>
 </template>

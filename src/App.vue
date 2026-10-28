@@ -10,7 +10,6 @@ import DeleteConfirmDialog from './components/DeleteConfirmDialog.vue'
 import ContextMenu from './components/ContextMenu.vue'
 import FolderAccessDialog from './components/FolderAccessDialog.vue'
 import CreateFolderDialog from './components/CreateFolderDialog.vue'
-import RecentStrip from './components/RecentStrip.vue'
 import { useBookmarkTree } from './composables/useBookmarkTree'
 import { useBookmarkTabs } from './composables/useBookmarkTabs'
 import { useBookmarkActions } from './composables/useBookmarkActions'
@@ -20,7 +19,6 @@ import { useContextMenu } from './composables/useContextMenu'
 import { useFolderAccess } from './composables/useFolderAccess'
 import { initSyncPrefs } from './composables/useSyncPrefs'
 import { useBookmarkSearch } from './composables/useBookmarkSearch'
-import { useRecentVisits } from './composables/useRecentVisits'
 import { t, text } from './i18n'
 
 const { loading, warning, loadBookmarks } = useBookmarkTree()
@@ -38,7 +36,6 @@ const {
   initActiveTab
 } = useBookmarkTabs()
 const { query, isSearching, results, clearQuery } = useBookmarkSearch()
-const { recentNodes } = useRecentVisits()
 const {
   hasBackgroundImage,
   backdropImageUrl,
@@ -249,8 +246,6 @@ onUnmounted(() => {
         <TriangleAlert :size="15" />
         {{ text(warning) }}
       </p>
-
-      <RecentStrip v-if="!loading && !isSearching && !isDrilledDown && recentNodes.length" :nodes="recentNodes" />
 
       <BookmarkBoard
         :nodes="isSearching ? results : visibleNodes"
