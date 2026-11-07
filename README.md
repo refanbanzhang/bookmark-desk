@@ -98,7 +98,7 @@ npm run icons     # 由 public/icons/icon.svg 重新生成 16/32/48/128 PNG（�
 │   ├── utils/                    # 纯函数：书签树变换、拖拽索引、favicon 地址、背景设置归一化、备份文件
 │   └── mock/                     # 无 Chrome API 时的演示数据
 ├── test/                         # node:test 单元测试
-└── docs/design/                  # 重构设计稿（令牌、界面、组件拆分方案）
+└── docs/store/                   # 商店文案、隐私政策、截图
 ```
 
 ## 加载扩展
